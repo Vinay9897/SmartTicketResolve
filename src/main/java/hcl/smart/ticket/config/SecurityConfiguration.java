@@ -54,7 +54,7 @@ public class SecurityConfiguration {
 						.requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**", "/actuator/health")
 						.permitAll()
 						.requestMatchers("/api/admin/**").hasRole("ADMIN")
-						.requestMatchers("/api/engineer/**").hasAnyRole("SUPPORT_ENGINEER", "ADMIN")
+						.requestMatchers("/api/engineer/**", "/api/support/**").hasRole("SUPPORT_ENGINEER")
 						.anyRequest().authenticated())
 				.exceptionHandling(exceptions -> exceptions
 						.authenticationEntryPoint((request, response, exception) ->

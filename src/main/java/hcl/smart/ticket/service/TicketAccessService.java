@@ -33,6 +33,10 @@ public class TicketAccessService {
 		throw new AccessDeniedException("Ticket access denied");
 	}
 
+	public boolean isTeamMember(UUID teamId, UUID userId) {
+		return teamMembershipRepository.existsByTeamIdAndUserId(teamId, userId);
+	}
+
 	private boolean isTicketOwner(UUID userId, Ticket ticket) {
 		return ticket.getCreatedBy() != null && userId.equals(ticket.getCreatedBy().getId());
 	}

@@ -38,5 +38,21 @@ UTF-8 bytes to match BCrypt's input limit. Admin and support-engineer URL groups
 protected. Authentication reloads the account on each request so inactive accounts and role
 changes invalidate previously issued tokens.
 
-`TicketAccessService` provides service-layer owner, team-membership, and unassigned-queue checks
-for future ticket operations. Ticket endpoints and business workflows remain out of scope here.
+## Ticket API
+
+- `POST /api/tickets` creates an `OPEN` ticket for the authenticated employee.
+- `GET /api/tickets/my` returns the employee's paginated tickets.
+- `GET /api/tickets/{ticketId}` and the ticket comment routes enforce ticket access.
+- `/api/support/tickets` provides the support engineer's assigned, team, or unassigned queue,
+  with status/category/priority filtering, assignment, status transitions, and resolution.
+- `/api/admin/tickets` provides admin-wide paginated ticket reads.
+
+Ticket list endpoints accept `page`, `size` (maximum 100), `sortBy` (`createdAt`, `updatedAt`,
+`priority`, `status`, or `title`), and `direction`. Support filtering accepts `categoryId`,
+`priority`, and `status`.
+
+Tickets begin in `OPEN` with `MEDIUM` priority unless a priority is supplied. Resolution notes are
+required to resolve; closing is allowed only from `RESOLVED`. Closed tickets cannot be assigned,
+changed, or commented on. Status transitions and assignment changes are recorded in history.
+Employee comments are always public; engineers can add internal comments. Ticket access checks
+are enforced in the service layer in addition to URL role checks.
