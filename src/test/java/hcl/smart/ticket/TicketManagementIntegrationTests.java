@@ -24,6 +24,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -88,6 +89,11 @@ class TicketManagementIntegrationTests {
 		assertThat(send("GET", "/api/tickets/" + ticketId, null, employee.token()).statusCode()).isEqualTo(200);
 		assertThat(send("GET", "/api/tickets/" + ticketId, null, otherEmployee.token()).statusCode())
 				.isEqualTo(403);
+		assertThat(send("GET", "/api/tickets/" + ticketId + "/comments", null, otherEmployee.token()).statusCode())
+				.isEqualTo(403);
+		assertThat(send("POST", "/api/tickets/" + ticketId + "/comments",
+				objectMapper.createObjectNode().put("comment", "Unauthorized comment").toString(),
+				otherEmployee.token()).statusCode()).isEqualTo(403);
 
 		HttpResponse<String> invalidCreate = send("POST", "/api/tickets",
 				objectMapper.createObjectNode().put("title", "").put("description", "").toString(),
@@ -114,13 +120,25 @@ class TicketManagementIntegrationTests {
 	void supportEngineerAssignsFiltersResolvesAndCannotUpdateClosedTicket() throws Exception {
 		Auth employee = registerEmployee("ticket-owner");
 		Auth engineer = createUser("engineer", UserRole.SUPPORT_ENGINEER);
+		Auth replacementEngineer = createUser("replacement-engineer", UserRole.SUPPORT_ENGINEER);
 		Auth outsider = createUser("outsider-engineer", UserRole.SUPPORT_ENGINEER);
+		User inactiveEngineer = userRepository.saveAndFlush(User.builder()
+				.name("Inactive engineer")
+				.email("inactive-engineer-" + UUID.randomUUID() + "@example.test")
+				.passwordHash(passwordEncoder.encode(PASSWORD))
+				.role(UserRole.SUPPORT_ENGINEER)
+				.active(false)
+				.build());
 		SupportTeam team = supportTeamRepository.saveAndFlush(SupportTeam.builder()
 				.name("Team-" + UUID.randomUUID())
 				.build());
 		teamMembershipRepository.saveAndFlush(TeamMembership.builder()
 				.team(team)
 				.user(userRepository.findById(UUID.fromString(engineer.id())).orElseThrow())
+				.build());
+		teamMembershipRepository.saveAndFlush(TeamMembership.builder()
+				.team(team)
+				.user(userRepository.findById(UUID.fromString(replacementEngineer.id())).orElseThrow())
 				.build());
 		HttpResponse<String> created = send("POST", "/api/tickets",
 				objectMapper.createObjectNode()
@@ -144,6 +162,11 @@ class TicketManagementIntegrationTests {
 				engineer.token());
 		assertThat(nonMemberAssignment.statusCode()).isEqualTo(409);
 
+		HttpResponse<String> inactiveAssignment = send("PUT", "/api/support/tickets/" + ticketId + "/assign",
+				objectMapper.createObjectNode().put("assignedToId", inactiveEngineer.getId().toString()).toString(),
+				engineer.token());
+		assertThat(inactiveAssignment.statusCode()).isEqualTo(403);
+
 		HttpResponse<String> assigned = send("PUT", "/api/support/tickets/" + ticketId + "/assign",
 				objectMapper.createObjectNode()
 						.put("assignedToId", engineer.id())
@@ -151,9 +174,31 @@ class TicketManagementIntegrationTests {
 						.toString(),
 				engineer.token());
 		assertThat(assigned.statusCode()).isEqualTo(200);
-		assertThat(ticketAssignmentRepository.count()).isGreaterThanOrEqualTo(1);
+		var assignmentHistory = ticketAssignmentRepository.findByTicketIdOrderByAssignedAtDesc(
+				UUID.fromString(ticketId), PageRequest.of(0, 10));
+		assertThat(assignmentHistory.getTotalElements()).isEqualTo(1);
+		assertThat(assignmentHistory.getContent().getFirst().getAssignedBy().getId())
+				.isEqualTo(UUID.fromString(engineer.id()));
+		assertThat(assignmentHistory.getContent().getFirst().getAssignedAt()).isNotNull();
+		assertThat(assignmentHistory.getContent().getFirst().getAssignedTo().getId())
+				.isEqualTo(UUID.fromString(engineer.id()));
 		assertThat(send("GET", "/api/support/tickets/" + ticketId, null, outsider.token()).statusCode())
 				.isEqualTo(403);
+
+		HttpResponse<String> reassigned = send("PUT", "/api/support/tickets/" + ticketId + "/assign",
+				objectMapper.createObjectNode()
+						.put("assignedToId", replacementEngineer.id())
+						.put("supportTeamId", team.getId().toString())
+						.toString(),
+				engineer.token());
+		assertThat(reassigned.statusCode()).isEqualTo(200);
+		var reassignmentHistory = ticketAssignmentRepository.findByTicketIdOrderByAssignedAtDesc(
+				UUID.fromString(ticketId), PageRequest.of(0, 10));
+		assertThat(reassignmentHistory.getTotalElements()).isEqualTo(2);
+		assertThat(reassignmentHistory.getContent().getFirst().getAssignedTo().getId())
+				.isEqualTo(UUID.fromString(replacementEngineer.id()));
+		assertThat(reassignmentHistory.getContent().getFirst().getAssignedBy().getId())
+				.isEqualTo(UUID.fromString(engineer.id()));
 
 		HttpResponse<String> filtered = send("GET",
 				"/api/support/tickets/filter?priority=HIGH&status=OPEN&page=0&size=10",
@@ -168,9 +213,15 @@ class TicketManagementIntegrationTests {
 						.toString(),
 				engineer.token());
 		assertThat(internalComment.statusCode()).isEqualTo(201);
+		HttpResponse<String> publicSupportComment = send("POST", "/api/tickets/" + ticketId + "/comments",
+				objectMapper.createObjectNode().put("comment", "Please confirm the connection is restored.").toString(),
+				engineer.token());
+		assertThat(publicSupportComment.statusCode()).isEqualTo(201);
 		HttpResponse<String> employeeComments = send(
 				"GET", "/api/tickets/" + ticketId + "/comments", null, employee.token());
-		assertThat(objectMapper.readTree(employeeComments.body()).path("totalElements").intValue()).isZero();
+		assertThat(objectMapper.readTree(employeeComments.body()).path("totalElements").intValue()).isEqualTo(1);
+		assertThat(send("GET", "/api/tickets/" + ticketId + "/comments", null, engineer.token()).statusCode())
+				.isEqualTo(200);
 
 		HttpResponse<String> inProgress = send("PUT", "/api/support/tickets/" + ticketId + "/status",
 				objectMapper.createObjectNode().put("status", "IN_PROGRESS").toString(),
@@ -204,6 +255,14 @@ class TicketManagementIntegrationTests {
 	void adminCanListAllTicketsAndEmployeesCannotUseSupportOperations() throws Exception {
 		Auth admin = createUser("admin", UserRole.ADMIN);
 		Auth employee = registerEmployee("plain-employee");
+		Auth engineer = createUser("admin-assignee", UserRole.SUPPORT_ENGINEER);
+		SupportTeam team = supportTeamRepository.saveAndFlush(SupportTeam.builder()
+				.name("Admin Team-" + UUID.randomUUID())
+				.build());
+		teamMembershipRepository.saveAndFlush(TeamMembership.builder()
+				.team(team)
+				.user(userRepository.findById(UUID.fromString(engineer.id())).orElseThrow())
+				.build());
 		HttpResponse<String> created = send("POST", "/api/tickets",
 				objectMapper.createObjectNode()
 						.put("title", "Printer issue")
@@ -216,6 +275,25 @@ class TicketManagementIntegrationTests {
 				.isEqualTo(200);
 		assertThat(send("GET", "/api/admin/tickets/" + ticketId, null, admin.token()).statusCode())
 				.isEqualTo(200);
+		HttpResponse<String> assigned = send("PUT", "/api/admin/tickets/" + ticketId + "/assign",
+				objectMapper.createObjectNode()
+						.put("assignedToId", engineer.id())
+						.put("supportTeamId", team.getId().toString())
+						.toString(),
+				admin.token());
+		assertThat(assigned.statusCode()).isEqualTo(200);
+		var adminAssignmentHistory = ticketAssignmentRepository.findByTicketIdOrderByAssignedAtDesc(
+				UUID.fromString(ticketId), PageRequest.of(0, 10));
+		assertThat(adminAssignmentHistory.getTotalElements()).isEqualTo(1);
+		assertThat(adminAssignmentHistory.getContent().getFirst().getAssignedBy().getId())
+				.isEqualTo(UUID.fromString(admin.id()));
+		assertThat(adminAssignmentHistory.getContent().getFirst().getSupportTeam().getId()).isEqualTo(team.getId());
+		assertThat(send("PUT", "/api/admin/tickets/" + ticketId + "/assign",
+				objectMapper.createObjectNode()
+						.put("assignedToId", engineer.id())
+						.put("supportTeamId", team.getId().toString())
+						.toString(),
+				engineer.token()).statusCode()).isEqualTo(403);
 		assertThat(send("GET", "/api/admin/tickets", null, employee.token()).statusCode())
 				.isEqualTo(403);
 		assertThat(send("GET", "/api/support/tickets", null, employee.token()).statusCode())

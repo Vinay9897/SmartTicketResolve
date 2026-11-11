@@ -11,6 +11,7 @@ import hcl.smart.ticket.dto.request.ResolveTicketRequest;
 import hcl.smart.ticket.dto.response.PageResponse;
 import hcl.smart.ticket.dto.response.TicketCommentResponse;
 import hcl.smart.ticket.dto.response.TicketResponse;
+import hcl.smart.ticket.event.TicketCreatedEvent;
 import hcl.smart.ticket.entity.SupportTeam;
 import hcl.smart.ticket.entity.Ticket;
 import hcl.smart.ticket.entity.TicketAssignment;
@@ -36,6 +37,7 @@ import hcl.smart.ticket.security.UserPrincipal;
 import hcl.smart.ticket.service.TicketAccessService;
 import hcl.smart.ticket.service.TicketService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
@@ -55,6 +57,7 @@ public class TicketServiceImpl implements TicketService {
 	private final UserRepository userRepository;
 	private final TicketAccessService ticketAccessService;
 	private final TicketMapper ticketMapper;
+	private final ApplicationEventPublisher eventPublisher;
 
 	@Override
 	@Transactional
@@ -74,6 +77,7 @@ public class TicketServiceImpl implements TicketService {
 				.build();
 		Ticket savedTicket = ticketRepository.saveAndFlush(ticket);
 		recordStatusChange(savedTicket, null, TicketStatus.OPEN, actor.id(), "Ticket created");
+		eventPublisher.publishEvent(new TicketCreatedEvent(savedTicket.getId()));
 		return ticketMapper.toResponse(savedTicket);
 	}
 
@@ -155,6 +159,19 @@ public class TicketServiceImpl implements TicketService {
 		requireSupportRole(actor);
 		Ticket ticket = findAccessibleTicket(actor, ticketId);
 		requireOpenForUpdate(ticket);
+		return assignTicket(actor, ticket, request);
+	}
+
+	@Override
+	@Transactional
+	public TicketResponse adminAssignTicket(UserPrincipal actor, UUID ticketId, AssignTicketRequest request) {
+		requireRole(actor, UserRole.ADMIN);
+		Ticket ticket = ticketRepository.findById(ticketId).orElseThrow(TicketNotFoundException::new);
+		requireOpenForUpdate(ticket);
+		return assignTicket(actor, ticket, request);
+	}
+
+	private TicketResponse assignTicket(UserPrincipal actor, Ticket ticket, AssignTicketRequest request) {
 		User assignee = findActiveUser(request.assignedToId());
 		if (assignee.getRole() != UserRole.SUPPORT_ENGINEER) {
 			throw new TicketOperationException("Tickets can only be assigned to active support engineers");

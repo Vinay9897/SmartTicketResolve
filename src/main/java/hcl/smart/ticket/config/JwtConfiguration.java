@@ -31,7 +31,7 @@ public class JwtConfiguration {
 	}
 
 	@Bean
-	Duration accessTokenTtl(@Value("${smartresolve.security.jwt.access-token-ttl:PT15M}") Duration ttl) {
+	Duration accessTokenTtl(@Value("${smartresolve.security.jwt.access-token-ttl:PT30M}") Duration ttl) {
 		if (ttl.isZero() || ttl.isNegative()) {
 			throw new IllegalArgumentException("JWT access-token TTL must be positive");
 		}

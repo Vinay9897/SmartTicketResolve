@@ -5,9 +5,11 @@ import java.util.UUID;
 import hcl.smart.ticket.dto.request.AddTicketCommentRequest;
 import hcl.smart.ticket.dto.request.CreateTicketRequest;
 import hcl.smart.ticket.dto.response.PageResponse;
+import hcl.smart.ticket.dto.response.TicketAiAnalysisResponse;
 import hcl.smart.ticket.dto.response.TicketCommentResponse;
 import hcl.smart.ticket.dto.response.TicketResponse;
 import hcl.smart.ticket.security.UserPrincipal;
+import hcl.smart.ticket.service.TicketAiAnalysisWorkflowService;
 import hcl.smart.ticket.service.TicketService;
 import hcl.smart.ticket.util.PageableFactory;
 import jakarta.validation.Valid;
@@ -30,6 +32,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class TicketController {
 
 	private final TicketService ticketService;
+	private final TicketAiAnalysisWorkflowService aiAnalysisWorkflowService;
 
 	@PostMapping
 	@ResponseStatus(HttpStatus.CREATED)
@@ -64,6 +67,21 @@ public class TicketController {
 			@PathVariable UUID ticketId,
 			@Valid @RequestBody AddTicketCommentRequest request) {
 		return ticketService.addComment(principal, ticketId, request);
+	}
+
+	@PostMapping("/{ticketId}/ai-analysis")
+	@ResponseStatus(HttpStatus.CREATED)
+	public TicketAiAnalysisResponse analyzeTicket(
+			@AuthenticationPrincipal UserPrincipal principal,
+			@PathVariable UUID ticketId) {
+		return aiAnalysisWorkflowService.analyze(principal, ticketId);
+	}
+
+	@GetMapping("/{ticketId}/ai-analysis")
+	public TicketAiAnalysisResponse getAiAnalysis(
+			@AuthenticationPrincipal UserPrincipal principal,
+			@PathVariable UUID ticketId) {
+		return aiAnalysisWorkflowService.getLatest(principal, ticketId);
 	}
 
 	@GetMapping("/{ticketId}/comments")

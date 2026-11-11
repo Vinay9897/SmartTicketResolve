@@ -48,6 +48,9 @@ public class TicketAiAnalysis {
 	@JoinColumn(name = "suggested_category_id")
 	private TicketCategory suggestedCategory;
 
+	@Column(length = 100)
+	private String suggestedCategoryName;
+
 	@Enumerated(EnumType.STRING)
 	@Column(length = 20)
 	private TicketPriority suggestedPriority;

@@ -46,6 +46,8 @@ changes invalidate previously issued tokens.
 - `/api/support/tickets` provides the support engineer's assigned, team, or unassigned queue,
   with status/category/priority filtering, assignment, status transitions, and resolution.
 - `/api/admin/tickets` provides admin-wide paginated ticket reads.
+- `PUT /api/admin/tickets/{ticketId}/assign` lets administrators assign/reassign an active support
+  engineer, optionally paired with a team the engineer belongs to.
 
 Ticket list endpoints accept `page`, `size` (maximum 100), `sortBy` (`createdAt`, `updatedAt`,
 `priority`, `status`, or `title`), and `direction`. Support filtering accepts `categoryId`,
@@ -56,3 +58,23 @@ required to resolve; closing is allowed only from `RESOLVED`. Closed tickets can
 changed, or commented on. Status transitions and assignment changes are recorded in history.
 Employee comments are always public; engineers can add internal comments. Ticket access checks
 are enforced in the service layer in addition to URL role checks.
+Assignment history records the ticket, assigning user, assigned engineer, optional support team,
+and timestamp for each assignment or reassignment.
+
+## AI Ticket Analysis
+
+Set `SMARTRESOLVE_AI_API_KEY` to enable the default OpenAI provider. Configure the provider through
+`SMARTRESOLVE_AI_PROVIDER` (defaults to `openai`), `SMARTRESOLVE_AI_MODEL` (defaults to
+`gpt-4o-mini`), and `SMARTRESOLVE_AI_REQUEST_TIMEOUT` (defaults to `PT20S`). Without a configured
+provider, analyses are recorded as `FAILED`; ticket creation still succeeds. Set
+`SMARTRESOLVE_AI_AUTO_ANALYZE_ON_CREATE=false` to disable automatic after-creation analysis.
+
+- `POST /api/tickets/{ticketId}/ai-analysis` requests a new analysis.
+- `GET /api/tickets/{ticketId}/ai-analysis` returns the latest analysis.
+- `PUT /api/support/tickets/{ticketId}/ai-analysis` lets an authorized support engineer review and
+  update a completed analysis.
+
+AI recommendations are advisory. They do not assign, resolve, or close tickets. Category
+recommendations are checked against active categories when any are configured. The V3 Flyway
+migration adds a text label so recommendations can still be retained when they do not map to a
+configured category.

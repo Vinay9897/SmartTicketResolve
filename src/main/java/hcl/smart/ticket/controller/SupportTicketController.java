@@ -5,11 +5,14 @@ import java.util.UUID;
 import hcl.smart.ticket.dto.request.AssignTicketRequest;
 import hcl.smart.ticket.dto.request.ChangeTicketStatusRequest;
 import hcl.smart.ticket.dto.request.ResolveTicketRequest;
+import hcl.smart.ticket.dto.request.ReviewTicketAiAnalysisRequest;
 import hcl.smart.ticket.dto.response.PageResponse;
+import hcl.smart.ticket.dto.response.TicketAiAnalysisResponse;
 import hcl.smart.ticket.dto.response.TicketResponse;
 import hcl.smart.ticket.enums.TicketPriority;
 import hcl.smart.ticket.enums.TicketStatus;
 import hcl.smart.ticket.security.UserPrincipal;
+import hcl.smart.ticket.service.TicketAiAnalysisWorkflowService;
 import hcl.smart.ticket.service.TicketService;
 import hcl.smart.ticket.util.PageableFactory;
 import jakarta.validation.Valid;
@@ -30,6 +33,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class SupportTicketController {
 
 	private final TicketService ticketService;
+	private final TicketAiAnalysisWorkflowService aiAnalysisWorkflowService;
 
 	@GetMapping
 	public PageResponse<TicketResponse> getTickets(
@@ -85,5 +89,13 @@ public class SupportTicketController {
 			@PathVariable UUID ticketId,
 			@Valid @RequestBody ResolveTicketRequest request) {
 		return ticketService.resolveTicket(principal, ticketId, request);
+	}
+
+	@PutMapping("/{ticketId}/ai-analysis")
+	public TicketAiAnalysisResponse reviewAiAnalysis(
+			@AuthenticationPrincipal UserPrincipal principal,
+			@PathVariable UUID ticketId,
+			@Valid @RequestBody ReviewTicketAiAnalysisRequest request) {
+		return aiAnalysisWorkflowService.review(principal, ticketId, request);
 	}
 }

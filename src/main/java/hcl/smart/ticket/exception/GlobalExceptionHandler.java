@@ -2,6 +2,7 @@ package hcl.smart.ticket.exception;
 
 import java.time.Instant;
 
+import hcl.smart.ticket.ai.AiAnalysisException;
 import hcl.smart.ticket.dto.response.ApiErrorResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -33,6 +34,13 @@ public class GlobalExceptionHandler {
 	@ExceptionHandler(TicketOperationException.class)
 	public ResponseEntity<ApiErrorResponse> handleTicketOperation(
 			TicketOperationException exception,
+			HttpServletRequest request) {
+		return error(HttpStatus.CONFLICT, exception.getMessage(), request);
+	}
+
+	@ExceptionHandler(AiAnalysisException.class)
+	public ResponseEntity<ApiErrorResponse> handleAiAnalysisConflict(
+			AiAnalysisException exception,
 			HttpServletRequest request) {
 		return error(HttpStatus.CONFLICT, exception.getMessage(), request);
 	}

@@ -37,6 +37,8 @@ public interface TicketService {
 
 	TicketResponse assignTicket(UserPrincipal actor, UUID ticketId, AssignTicketRequest request);
 
+	TicketResponse adminAssignTicket(UserPrincipal actor, UUID ticketId, AssignTicketRequest request);
+
 	TicketResponse resolveTicket(UserPrincipal actor, UUID ticketId, ResolveTicketRequest request);
 
 	TicketCommentResponse addComment(
