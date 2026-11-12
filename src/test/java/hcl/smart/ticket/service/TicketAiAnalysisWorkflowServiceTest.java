@@ -64,7 +64,7 @@ class TicketAiAnalysisWorkflowServiceTest {
 		TicketAiAnalysisResponse failed = response(ticketId, AiAnalysisStatus.FAILED);
 		when(persistenceService.beginSystemAnalysis(ticketId)).thenReturn(context);
 		when(aiAnalysisService.analyze(context.toRequest()))
-				.thenThrow(new AiAnalysisException("No Spring AI chat provider is configured"));
+				.thenThrow(new AiAnalysisException("AI API key is not configured"));
 		when(persistenceService.failAnalysis(context)).thenReturn(failed);
 
 		assertThat(workflowService.analyzeCreatedTicket(ticketId)).isSameAs(failed);

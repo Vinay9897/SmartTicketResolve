@@ -63,10 +63,20 @@ and timestamp for each assignment or reassignment.
 
 ## AI Ticket Analysis
 
-Set `SMARTRESOLVE_AI_API_KEY` to enable the default OpenAI provider. Configure the provider through
-`SMARTRESOLVE_AI_PROVIDER` (defaults to `openai`), `SMARTRESOLVE_AI_MODEL` (defaults to
-`gpt-4o-mini`), and `SMARTRESOLVE_AI_REQUEST_TIMEOUT` (defaults to `PT20S`). Without a configured
-provider, analyses are recorded as `FAILED`; ticket creation still succeeds. Set
+For local development, store the HCL AI Cafe subscription key in the root-level
+`application-local.properties` file:
+
+```properties
+smartresolve.ai.api-key=your-ai-cafe-key
+```
+
+This file is Git-ignored and loaded as an optional Spring configuration override. Do not force-add
+it to Git. You can also provide the key through `SMARTRESOLVE_AI_API_KEY` in deployed environments.
+The default endpoint is the `gpt-4.1` deployment with API version `2024-12-01-preview`; override it
+with `SMARTRESOLVE_AI_ENDPOINT` if needed. `SMARTRESOLVE_AI_MODEL` defaults to `gpt-4.1`,
+`SMARTRESOLVE_AI_TEMPERATURE` defaults to `0.2`, and `SMARTRESOLVE_AI_REQUEST_TIMEOUT` defaults
+to `PT20S`. Each AI response is capped at 100 tokens. Without a configured API key, analyses are
+recorded as `FAILED`; ticket creation still succeeds. Set
 `SMARTRESOLVE_AI_AUTO_ANALYZE_ON_CREATE=false` to disable automatic after-creation analysis.
 
 - `POST /api/tickets/{ticketId}/ai-analysis` requests a new analysis.
