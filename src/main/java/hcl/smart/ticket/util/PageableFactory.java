@@ -12,6 +12,8 @@ public final class PageableFactory {
 	private static final int MAX_PAGE_SIZE = 100;
 	private static final Set<String> TICKET_SORT_FIELDS =
 			Set.of("createdAt", "updatedAt", "priority", "status", "title");
+	private static final Set<String> USER_SORT_FIELDS =
+			Set.of("createdAt", "updatedAt", "name", "email", "role", "active");
 
 	private PageableFactory() {
 	}
@@ -29,5 +31,13 @@ public final class PageableFactory {
 			throw new InvalidRequestException("Use a non-negative page and a page size from 1 to 100");
 		}
 		return PageRequest.of(page, size, Sort.by(Sort.Direction.ASC, "createdAt"));
+	}
+
+	public static Pageable users(int page, int size, String sortBy, Sort.Direction direction) {
+		if (page < 0 || size < 1 || size > MAX_PAGE_SIZE || !USER_SORT_FIELDS.contains(sortBy)) {
+			throw new InvalidRequestException(
+					"Use a non-negative page, a page size from 1 to 100, and a supported user sort field");
+		}
+		return PageRequest.of(page, size, Sort.by(direction, sortBy));
 	}
 }

@@ -256,7 +256,7 @@ class TicketApplicationTests {
 		String adminToken = loginAndGetToken(admin.getEmail(), password);
 
 		assertThat(sendJson("GET", "/api/engineer/queue", null, engineerToken).statusCode()).isEqualTo(404);
-		assertThat(sendJson("GET", "/api/admin/users", null, adminToken).statusCode()).isEqualTo(404);
+		assertThat(sendJson("GET", "/api/admin/users", null, adminToken).statusCode()).isEqualTo(200);
 	}
 
 	@Test

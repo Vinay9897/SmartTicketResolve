@@ -4,6 +4,8 @@ import java.util.Optional;
 import java.util.UUID;
 
 import hcl.smart.ticket.entity.User;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface UserRepository extends JpaRepository<User, UUID> {
@@ -11,4 +13,8 @@ public interface UserRepository extends JpaRepository<User, UUID> {
 	Optional<User> findByEmail(String email);
 
 	Optional<User> findByEmailIgnoreCase(String email);
+
+	boolean existsByEmailIgnoreCaseAndIdNot(String email, UUID id);
+
+	Page<User> findAll(Pageable pageable);
 }

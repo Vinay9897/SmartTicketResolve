@@ -13,5 +13,11 @@ public interface TicketCategoryRepository extends JpaRepository<TicketCategory, 
 
 	Optional<TicketCategory> findByNameIgnoreCase(String name);
 
+	boolean existsByNameIgnoreCase(String name);
+
+	boolean existsByNameIgnoreCaseAndIdNot(String name, UUID id);
+
 	List<TicketCategory> findByActiveTrueOrderByNameAsc();
+
+	List<TicketCategory> findAllByOrderByNameAsc();
 }

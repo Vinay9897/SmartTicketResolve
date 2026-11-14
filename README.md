@@ -48,6 +48,15 @@ changes invalidate previously issued tokens.
 - `/api/admin/tickets` provides admin-wide paginated ticket reads.
 - `PUT /api/admin/tickets/{ticketId}/assign` lets administrators assign/reassign an active support
   engineer, optionally paired with a team the engineer belongs to.
+- `/api/admin/users` provides paginated user management. Passwords are BCrypt-hashed and never
+  included in responses; an optional password on user update replaces the current hash.
+- `/api/admin/categories` and `/api/admin/teams` provide catalog management. Deleting a category
+  or team deactivates it to preserve ticket and assignment history; PUT can reactivate it with
+  `"active": true`.
+- `/api/admin/dashboard/summary` returns ticket totals, status totals, and support-team totals.
+  `/api/admin/dashboard/tickets-by-status`, `/tickets-by-priority`, `/tickets-by-category`, and
+  `/tickets-by-support-team` return database-aggregated counts, including uncategorized and
+  unassigned tickets.
 
 Ticket list endpoints accept `page`, `size` (maximum 100), `sortBy` (`createdAt`, `updatedAt`,
 `priority`, `status`, or `title`), and `direction`. Support filtering accepts `categoryId`,
