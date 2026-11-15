@@ -290,6 +290,13 @@ class TicketApplicationTests {
 	}
 
 	@Test
+	void rejectsMalformedJwtForProtectedEndpoint() throws Exception {
+		HttpResponse<String> response = sendJson("GET", "/api/auth/me", null, "not-a-valid-jwt");
+
+		assertThat(response.statusCode()).isEqualTo(401);
+	}
+
+	@Test
 	void registrationValidatesInputAndRejectsDuplicateEmail() throws Exception {
 		String email = "duplicate-" + UUID.randomUUID() + "@example.test";
 		String body = objectMapper.createObjectNode()

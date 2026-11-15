@@ -242,6 +242,9 @@ class TicketManagementIntegrationTests {
 				objectMapper.createObjectNode().put("status", "CLOSED").toString(),
 				engineer.token());
 		assertThat(closed.statusCode()).isEqualTo(200);
+		assertThat(send("PUT", "/api/support/tickets/" + ticketId + "/status",
+				objectMapper.createObjectNode().put("status", "IN_PROGRESS").toString(),
+				engineer.token()).statusCode()).isEqualTo(409);
 		assertThat(send("PUT", "/api/support/tickets/" + ticketId + "/assign",
 				objectMapper.createObjectNode().put("assignedToId", engineer.id()).toString(),
 				engineer.token()).statusCode()).isEqualTo(409);
