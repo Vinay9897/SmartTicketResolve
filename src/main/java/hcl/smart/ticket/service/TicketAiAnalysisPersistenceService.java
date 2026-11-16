@@ -72,9 +72,10 @@ public class TicketAiAnalysisPersistenceService {
 	}
 
 	@Transactional
-	public TicketAiAnalysisResponse failAnalysis(AnalysisContext context) {
+	public TicketAiAnalysisResponse failAnalysis(AnalysisContext context, String failureMessage) {
 		TicketAiAnalysis analysis = findAnalysis(context.analysisId(), context.ticketId());
 		analysis.setStatus(AiAnalysisStatus.FAILED);
+		analysis.setFailureMessage(failureMessage);
 		return toResponse(analysisRepository.save(analysis));
 	}
 
@@ -160,7 +161,8 @@ public class TicketAiAnalysisPersistenceService {
 				analysis.getReviewedBy() == null ? null : analysis.getReviewedBy().getId(),
 				analysis.getReviewedAt(),
 				analysis.getStatus(),
-				analysis.getCreatedAt());
+				analysis.getCreatedAt(),
+				analysis.getFailureMessage());
 	}
 
 	public record AnalysisContext(

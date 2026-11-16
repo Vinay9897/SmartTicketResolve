@@ -33,6 +33,13 @@ public final class PageableFactory {
 		return PageRequest.of(page, size, Sort.by(Sort.Direction.ASC, "createdAt"));
 	}
 
+	public static Pageable statusHistory(int page, int size) {
+		if (page < 0 || size < 1 || size > MAX_PAGE_SIZE) {
+			throw new InvalidRequestException("Use a non-negative page and a page size from 1 to 100");
+		}
+		return PageRequest.of(page, size, Sort.by(Sort.Direction.ASC, "changedAt"));
+	}
+
 	public static Pageable users(int page, int size, String sortBy, Sort.Direction direction) {
 		if (page < 0 || size < 1 || size > MAX_PAGE_SIZE || !USER_SORT_FIELDS.contains(sortBy)) {
 			throw new InvalidRequestException(

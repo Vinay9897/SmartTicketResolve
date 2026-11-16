@@ -10,6 +10,7 @@ import hcl.smart.ticket.dto.request.ResolveTicketRequest;
 import hcl.smart.ticket.dto.response.PageResponse;
 import hcl.smart.ticket.dto.response.TicketCommentResponse;
 import hcl.smart.ticket.dto.response.TicketResponse;
+import hcl.smart.ticket.dto.response.TicketStatusHistoryResponse;
 import hcl.smart.ticket.enums.TicketPriority;
 import hcl.smart.ticket.enums.TicketStatus;
 import hcl.smart.ticket.security.UserPrincipal;
@@ -45,5 +46,8 @@ public interface TicketService {
 			UserPrincipal actor, UUID ticketId, AddTicketCommentRequest request);
 
 	PageResponse<TicketCommentResponse> getComments(
+			UserPrincipal actor, UUID ticketId, Pageable pageable);
+
+	PageResponse<TicketStatusHistoryResponse> getStatusHistory(
 			UserPrincipal actor, UUID ticketId, Pageable pageable);
 }

@@ -9,6 +9,7 @@ import hcl.smart.ticket.dto.request.ReviewTicketAiAnalysisRequest;
 import hcl.smart.ticket.dto.response.PageResponse;
 import hcl.smart.ticket.dto.response.TicketAiAnalysisResponse;
 import hcl.smart.ticket.dto.response.TicketResponse;
+import hcl.smart.ticket.dto.response.TicketStatusHistoryResponse;
 import hcl.smart.ticket.enums.TicketPriority;
 import hcl.smart.ticket.enums.TicketStatus;
 import hcl.smart.ticket.security.UserPrincipal;
@@ -65,6 +66,15 @@ public class SupportTicketController {
 			@AuthenticationPrincipal UserPrincipal principal,
 			@PathVariable UUID ticketId) {
 		return ticketService.getSupportTicket(principal, ticketId);
+	}
+
+	@GetMapping("/{ticketId}/status-history")
+	public PageResponse<TicketStatusHistoryResponse> getStatusHistory(
+			@AuthenticationPrincipal UserPrincipal principal,
+			@PathVariable UUID ticketId,
+			@RequestParam(defaultValue = "0") int page,
+			@RequestParam(defaultValue = "100") int size) {
+		return ticketService.getStatusHistory(principal, ticketId, PageableFactory.statusHistory(page, size));
 	}
 
 	@PutMapping("/{ticketId}/status")

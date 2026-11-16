@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { ArrowRight, RotateCcw } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useOutletContext } from "react-router-dom";
 import Card, { CardHeader } from "../../components/ui/Card.jsx";
 import DataTable from "../../components/ui/DataTable.jsx";
 import ErrorState from "../../components/ui/ErrorState.jsx";
@@ -124,7 +124,8 @@ const columns = [
   },
 ];
 
-export default function SupportTicketQueuePage() {
+export default function SupportTicketQueuePage({ assignedOnly = false }) {
+  const { user } = useOutletContext();
   const [categoryId, setCategoryId] = useState("");
   const [priority, setPriority] = useState("");
   const [status, setStatus] = useState("");
@@ -171,14 +172,21 @@ export default function SupportTicketQueuePage() {
     return () => controller.abort();
   }, [categoryId, priority, status, direction, requestKey]);
 
+  const ticketsInScope = useMemo(
+    () => (assignedOnly
+      ? result.tickets.filter((ticket) => ticket.assignedToId === user?.id)
+      : result.tickets),
+    [assignedOnly, result.tickets, user?.id],
+  );
+
   const filteredTickets = useMemo(() => {
     const query = search.trim().toLocaleLowerCase();
-    if (!query) return result.tickets;
-    return result.tickets.filter((ticket) => (
+    if (!query) return ticketsInScope;
+    return ticketsInScope.filter((ticket) => (
       ticket.id.toLocaleLowerCase().includes(query)
       || ticket.title.toLocaleLowerCase().includes(query)
     ));
-  }, [result.tickets, search]);
+  }, [search, ticketsInScope]);
 
   const pageCount = Math.ceil(filteredTickets.length / PAGE_SIZE);
   const visibleTickets = filteredTickets.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
@@ -206,21 +214,25 @@ export default function SupportTicketQueuePage() {
         actions={(
           <Link
             className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-brand-600 px-4 text-sm font-medium text-white shadow-sm transition-colors hover:bg-brand-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-600"
-            to="/support/dashboard"
+            to={assignedOnly ? "/support/tickets" : "/support/dashboard"}
           >
             <ArrowRight aria-hidden="true" className="size-4" />
-            Dashboard
+            {assignedOnly ? "Ticket queue" : "Dashboard"}
           </Link>
         )}
-        description="Review incoming tickets available to you through your assignments, team memberships, and the unassigned queue."
+        description={assignedOnly
+          ? "Review tickets currently assigned directly to you."
+          : "Review incoming tickets available to you through your assignments, team memberships, and the unassigned queue."}
         eyebrow="Support operations"
-        title="Ticket queue"
+        title={assignedOnly ? "Assigned tickets" : "Ticket queue"}
       />
 
       <Card className="overflow-hidden">
         <CardHeader
-          description="Category, priority, status, and creation-date sorting are sent to the support API. Search narrows the returned accessible tickets by ID or title."
-          title="Accessible tickets"
+          description={assignedOnly
+            ? "Assignment is matched to your signed-in account; category, priority, status, and creation-date filters use the support API."
+            : "Category, priority, status, and creation-date sorting are sent to the support API. Search narrows the returned accessible tickets by ID or title."}
+          title={assignedOnly ? "Tickets assigned to you" : "Accessible tickets"}
         />
         <div className="grid items-end gap-3 px-5 pb-5 sm:grid-cols-2 xl:grid-cols-[minmax(220px,1fr)_repeat(4,minmax(140px,170px))_auto]">
           <SearchInput
@@ -290,8 +302,14 @@ export default function SupportTicketQueuePage() {
               columns={columns}
               emptyDescription={hasActiveFilters
                 ? "Try adjusting the search or filters to find another accessible ticket."
-                : "Incoming tickets available to your account will appear here."}
-              emptyTitle={hasActiveFilters ? "No matching tickets" : "No incoming tickets"}
+                : assignedOnly
+                  ? "Tickets assigned directly to your account will appear here."
+                  : "Incoming tickets available to your account will appear here."}
+              emptyTitle={hasActiveFilters
+                ? "No matching tickets"
+                : assignedOnly
+                  ? "No tickets assigned to you"
+                  : "No incoming tickets"}
               rows={visibleTickets}
             />
             {filteredTickets.length > 0 && (

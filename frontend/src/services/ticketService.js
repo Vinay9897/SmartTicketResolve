@@ -47,6 +47,7 @@ const aiAnalysisResponseSchema = z.object({
   reviewedAt: z.string().datetime().nullable(),
   status: z.enum(["PENDING", "COMPLETED", "FAILED", "REVIEWED"]),
   createdAt: z.string().datetime(),
+  failureMessage: z.string().nullable(),
 });
 
 const pageResponseSchema = z.object({
@@ -77,6 +78,36 @@ const commentPageResponseSchema = z.object({
   totalPages: z.number().int().nonnegative(),
   first: z.boolean(),
   last: z.boolean(),
+});
+
+const statusHistoryResponseSchema = z.object({
+  id: z.string().uuid(),
+  ticketId: z.string().uuid(),
+  fromStatus: ticketStatusSchema.nullable(),
+  toStatus: ticketStatusSchema,
+  note: z.string().nullable(),
+  changedByName: z.string().nullable(),
+  changedAt: z.string().datetime(),
+});
+
+const statusHistoryPageResponseSchema = z.object({
+  content: z.array(statusHistoryResponseSchema),
+  page: z.number().int().nonnegative(),
+  size: z.number().int().positive(),
+  totalElements: z.number().int().nonnegative(),
+  totalPages: z.number().int().nonnegative(),
+  first: z.boolean(),
+  last: z.boolean(),
+});
+
+const assignableEngineerSchema = z.object({
+  id: z.string().uuid(),
+  name: z.string(),
+});
+
+const assignableTeamSchema = z.object({
+  id: z.string().uuid(),
+  name: z.string(),
 });
 
 function parsePageResponse(response) {
@@ -112,11 +143,108 @@ export async function getSupportTicketById(ticketId, { signal } = {}) {
   return parseTicketResponse(data);
 }
 
+export async function getAssignableSupportEngineers({ teamId, signal } = {}) {
+  const { data } = await apiClient.get("/support/assignment-options/engineers", {
+    params: teamId ? { teamId } : {},
+    signal,
+  });
+  const parsed = z.array(assignableEngineerSchema).safeParse(data);
+  if (!parsed.success) {
+    throw new Error("The assignment service returned unexpected engineer data.");
+  }
+  return parsed.data;
+}
+
+export async function getAssignableSupportTeams({ signal } = {}) {
+  const { data } = await apiClient.get("/support/assignment-options/teams", { signal });
+  const parsed = z.array(assignableTeamSchema).safeParse(data);
+  if (!parsed.success) {
+    throw new Error("The assignment service returned unexpected team data.");
+  }
+  return parsed.data;
+}
+
+async function submitTicketAssignment(basePath, ticketId, request) {
+  const { data } = await apiClient.put(`${basePath}/${ticketId}/assign`, request);
+  return parseTicketResponse(data);
+}
+
+export async function assignSupportTicket(ticketId, request) {
+  return submitTicketAssignment("/support/tickets", ticketId, request);
+}
+
+export async function changeSupportTicketStatus(ticketId, request) {
+  const { data } = await apiClient.put(`/support/tickets/${ticketId}/status`, request);
+  return parseTicketResponse(data);
+}
+
+export async function resolveSupportTicket(ticketId, request) {
+  const { data } = await apiClient.put(`/support/tickets/${ticketId}/resolve`, request);
+  return parseTicketResponse(data);
+}
+
+export async function addSupportTroubleshootingNote(ticketId, comment) {
+  const { data } = await apiClient.post(`/tickets/${ticketId}/comments`, {
+    comment,
+    visibility: "INTERNAL",
+  });
+  const parsed = commentResponseSchema.safeParse(data);
+  if (!parsed.success) {
+    throw new Error("The ticket service returned an unexpected troubleshooting note response.");
+  }
+  return parsed.data;
+}
+
+export async function getSupportTicketStatusHistoryPage(
+  ticketId,
+  { page = 0, size = 100, signal } = {},
+) {
+  const { data } = await apiClient.get(`/support/tickets/${ticketId}/status-history`, {
+    params: { page, size },
+    signal,
+  });
+  const parsed = statusHistoryPageResponseSchema.safeParse(data);
+  if (!parsed.success) {
+    throw new Error("The ticket service returned unexpected status history data.");
+  }
+  return parsed.data;
+}
+
+export async function getAllSupportTicketStatusHistory(ticketId, { signal } = {}) {
+  const firstPage = await getSupportTicketStatusHistoryPage(ticketId, { page: 0, size: 100, signal });
+  const history = [...firstPage.content];
+
+  for (let page = 1; page < firstPage.totalPages; page += 1) {
+    const result = await getSupportTicketStatusHistoryPage(ticketId, { page, size: 100, signal });
+    history.push(...result.content);
+  }
+
+  return history;
+}
+
 export async function getTicketAiAnalysis(ticketId, { signal } = {}) {
   const { data } = await apiClient.get(`/tickets/${ticketId}/ai-analysis`, { signal });
   const parsed = aiAnalysisResponseSchema.safeParse(data);
   if (!parsed.success) {
     throw new Error("The AI analysis service returned an unexpected response.");
+  }
+  return parsed.data;
+}
+
+export async function generateTicketAiAnalysis(ticketId) {
+  const { data } = await apiClient.post(`/tickets/${ticketId}/ai-analysis`);
+  const parsed = aiAnalysisResponseSchema.safeParse(data);
+  if (!parsed.success) {
+    throw new Error("The AI analysis service returned an unexpected response.");
+  }
+  return parsed.data;
+}
+
+export async function reviewSupportTicketAiAnalysis(ticketId, request) {
+  const { data } = await apiClient.put(`/support/tickets/${ticketId}/ai-analysis`, request);
+  const parsed = aiAnalysisResponseSchema.safeParse(data);
+  if (!parsed.success) {
+    throw new Error("The AI review service returned an unexpected response.");
   }
   return parsed.data;
 }

@@ -64,6 +64,9 @@ public class TicketAiAnalysis {
 	@Column(columnDefinition = "text")
 	private String suggestedResponse;
 
+	@Column(columnDefinition = "text")
+	private String failureMessage;
+
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "reviewed_by")
 	private User reviewedBy;

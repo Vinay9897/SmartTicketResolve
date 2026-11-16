@@ -6,6 +6,9 @@ import Card, { CardHeader } from "../../components/ui/Card.jsx";
 import ErrorState from "../../components/ui/ErrorState.jsx";
 import PageHeading from "../../components/ui/PageHeading.jsx";
 import Skeleton from "../../components/ui/Skeleton.jsx";
+import SupportAiAnalysisPanel from "../../components/tickets/SupportAiAnalysisPanel.jsx";
+import TicketAssignmentPanel from "../../components/tickets/TicketAssignmentPanel.jsx";
+import TicketResolutionPanel from "../../components/tickets/TicketResolutionPanel.jsx";
 import { getSupportTicketById } from "../../services/ticketService.js";
 
 function formatDate(value) {
@@ -133,7 +136,7 @@ export default function SupportTicketDetailsPage() {
 
       <Card>
         <CardHeader
-          description="Ticket information from the accessible support queue. Support-managed fields are not editable here."
+          description="Ticket information for tickets accessible through your support queue."
           title="Ticket details"
         />
         <div className="grid gap-5 px-5 pb-5 sm:px-6 sm:pb-6">
@@ -186,6 +189,17 @@ export default function SupportTicketDetailsPage() {
           <TicketMetadata ticket={ticket} />
         </div>
       </Card>
+      <TicketResolutionPanel
+        key={`${ticket.id}:${ticket.updatedAt}`}
+        onTicketUpdated={() => setRetryCount((count) => count + 1)}
+        ticket={ticket}
+      />
+      <SupportAiAnalysisPanel key={ticket.id} ticketId={ticket.id} />
+      <TicketAssignmentPanel
+        key={`${ticket.id}:${ticket.updatedAt}`}
+        onAssigned={() => setRetryCount((count) => count + 1)}
+        ticket={ticket}
+      />
     </div>
   );
 }

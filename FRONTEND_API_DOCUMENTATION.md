@@ -79,7 +79,10 @@ All records below are immutable Java records; JSON uses their declared component
   `createdAt`.
 - `TicketAiAnalysisResponse`: `id`, `ticketId`, `suggestedCategoryName`, `suggestedCategoryId`,
   `suggestedPriority`, `issueSummary`, `troubleshootingSteps` (string array), `suggestedResponse`,
-  `reviewedById`, `reviewedAt`, `status`, `createdAt`.
+  `reviewedById`, `reviewedAt`, `status`, `createdAt`, and `failureMessage` (nullable).
+- `TicketStatusHistoryResponse`: `id`, `ticketId`, `fromStatus`, `toStatus`, `note`,
+  `changedByName`, and `changedAt`.
+- `AssignableEngineerResponse` and `AssignableTeamResponse`: `id` and `name`.
 - `ReviewTicketAiAnalysisRequest`: `issueSummary`, `suggestedCategoryId`, `suggestedPriority`,
   `troubleshootingSteps` (string array), `suggestedResponse`.
 - AI analysis status values: `PENDING`, `COMPLETED`, `FAILED`, `REVIEWED`. AI output is advisory;
@@ -141,10 +144,13 @@ team is supplied, team membership. Closed tickets cannot be assigned or changed.
 | `GET /api/support/tickets` | Query: `page=0`, `size=20`, `sortBy=createdAt`, `direction=DESC` | 200 `PageResponse<TicketResponse>` | `SUPPORT_ENGINEER` | 400 invalid paging/sort |
 | `GET /api/support/tickets/filter` | Optional query `categoryId`, `priority`, `status`; plus common ticket paging/sorting | 200 `PageResponse<TicketResponse>` | `SUPPORT_ENGINEER` | 400 invalid enum/paging/sort |
 | `GET /api/support/tickets/{ticketId}` | Path `ticketId` | 200 `TicketResponse` | `SUPPORT_ENGINEER` with ticket access | 403, 404 |
+| `GET /api/support/tickets/{ticketId}/status-history` | Path `ticketId`; query `page=0`, `size=100` | 200 `PageResponse<TicketStatusHistoryResponse>` | `SUPPORT_ENGINEER` with ticket access | 400, 403, 404 |
 | `PUT /api/support/tickets/{ticketId}/status` | Path `ticketId`; body `ChangeTicketStatusRequest` | 200 `TicketResponse` | `SUPPORT_ENGINEER` with ticket access | 400, 403, 404, 409 invalid transition/closed ticket |
 | `PUT /api/support/tickets/{ticketId}/assign` | Path `ticketId`; body `AssignTicketRequest` | 200 `TicketResponse` | `SUPPORT_ENGINEER` with ticket access | 400, 403, 404, 409 invalid assignee/team/closed ticket |
 | `PUT /api/support/tickets/{ticketId}/resolve` | Path `ticketId`; body `ResolveTicketRequest` | 200 `TicketResponse` with `RESOLVED` status | `SUPPORT_ENGINEER` with ticket access | 400, 403, 404, 409 already resolved/closed |
 | `PUT /api/support/tickets/{ticketId}/ai-analysis` | Path `ticketId`; body `ReviewTicketAiAnalysisRequest` | 200 `TicketAiAnalysisResponse` | `SUPPORT_ENGINEER` with ticket access | 400, 403, 404, 409 analysis not completed/category unavailable |
+| `GET /api/support/assignment-options/engineers` | Optional query `teamId` | 200 array of `AssignableEngineerResponse` | `SUPPORT_ENGINEER` | 403 |
+| `GET /api/support/assignment-options/teams` | — | 200 array of `AssignableTeamResponse` | `SUPPORT_ENGINEER` | 403 |
 
 For the support queue, category, priority, and status filters use the corresponding query parameters
 on `GET /api/support/tickets/filter`; creation-date ordering uses `sortBy=createdAt` and
@@ -174,7 +180,7 @@ controller.
 
 | Method and path | Parameters / body | Success response | Authentication / role | Errors |
 |---|---|---|---|---|
-| `GET /api/admin/users` | Query: `page`, `size`, `sortBy`, `direction` | 200 `PageResponse<UserResponse>` | `ADMIN` | 400 invalid paging/sort |
+| `GET /api/admin/users` | Query: `page`, `size`, `sortBy`, `direction`, optional `search` (name/email), optional `role` (`EMPLOYEE`, `SUPPORT_ENGINEER`, `ADMIN`) | 200 `PageResponse<UserResponse>` | `ADMIN` | 400 invalid paging/sort/role |
 | `GET /api/admin/users/{id}` | Path UUID `id` | 200 `UserResponse` | `ADMIN` | 404 |
 | `POST /api/admin/users` | Body: `AdminCreateUserRequest` | 201 `UserResponse` | `ADMIN` | 400 invalid input/password, 409 duplicate email |
 | `PUT /api/admin/users/{id}` | Path `id`; body `AdminUpdateUserRequest` | 200 `UserResponse` | `ADMIN` | 400 invalid input/password, 404, 409 duplicate email |
@@ -240,12 +246,13 @@ exposure, not controller methods.
 | Employee ticket submission | `POST /api/tickets`; category and priority are optional (default priority is `MEDIUM`); category selection is omitted because no non-admin category-list API exists |
 | Employee ticket detail / comments | `GET /api/tickets/{ticketId}`; `GET /api/tickets/{ticketId}/comments`; `POST /api/tickets/{ticketId}/comments`; the frontend retrieves `GET /api/tickets/{ticketId}/ai-analysis` to display analysis generated automatically on creation |
 | Employee AI analysis | `POST /api/tickets/{ticketId}/ai-analysis`; `GET /api/tickets/{ticketId}/ai-analysis` |
-| Support queue / filters | `GET /api/support/tickets`; `GET /api/support/tickets/filter` |
+| Support dashboard | `GET /api/support/tickets` across pages; dashboard metrics, priority chart, and assigned-ticket summary are computed from the accessible results |
+| Support queue / filters | `GET /api/support/tickets`; `GET /api/support/tickets/filter`; the Assigned Tickets screen filters the accessible results by the signed-in engineer's `assignedToId` because no assigned-only endpoint exists |
 | Support ticket detail / conversation | `GET /api/support/tickets/{ticketId}`; shared ticket comment GET/POST endpoints |
-| Support ticket work | `PUT /api/support/tickets/{ticketId}/assign`; `/status`; `/resolve` |
+| Support ticket work | `GET /api/support/assignment-options/engineers`; `GET /api/support/assignment-options/teams`; `GET /api/support/tickets/{ticketId}/status-history`; `PUT /api/support/tickets/{ticketId}/assign`; `/status`; `/resolve` |
 | Support AI recommendation review | `GET /api/tickets/{ticketId}/ai-analysis`; `PUT /api/support/tickets/{ticketId}/ai-analysis` |
-| Admin dashboard | `GET /api/admin/dashboard/summary`; `/tickets-by-status`; `/tickets-by-priority`; `/tickets-by-category`; `/tickets-by-support-team` |
-| Admin ticket browsing / assignment | `GET /api/admin/tickets`; `GET /api/admin/tickets/{ticketId}`; `PUT /api/admin/tickets/{ticketId}/assign` |
+| Admin dashboard | `GET /api/admin/dashboard/summary`; `/tickets-by-status`; `/tickets-by-priority`; `/tickets-by-category`; support-team counts are included in `summary.ticketsBySupportTeam` (the separate `/tickets-by-support-team` endpoint is available but not used by this screen) |
+| Admin ticket browsing / assignment | `GET /api/admin/tickets`; `GET /api/admin/tickets/{ticketId}`; `PUT /api/admin/tickets/{ticketId}/assign`; active engineer options from `GET /api/admin/users?role=SUPPORT_ENGINEER`; active team options from `GET /api/admin/teams` |
 | Admin user management | `/api/admin/users` GET/POST; `/api/admin/users/{id}` GET/PUT; `/api/admin/users/{id}/status` PATCH |
 | Admin category management | `/api/admin/categories` GET/POST; `/api/admin/categories/{id}` PUT/DELETE |
 | Admin team management | `/api/admin/teams` GET/POST; `/api/admin/teams/{id}` PUT/DELETE |

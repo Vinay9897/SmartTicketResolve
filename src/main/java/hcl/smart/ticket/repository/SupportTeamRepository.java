@@ -18,4 +18,6 @@ public interface SupportTeamRepository extends JpaRepository<SupportTeam, UUID> 
 	boolean existsByNameIgnoreCaseAndIdNot(String name, UUID id);
 
 	List<SupportTeam> findAllByOrderByNameAsc();
+
+	List<SupportTeam> findAllByActiveTrueOrderByNameAsc();
 }

@@ -7,6 +7,7 @@ import hcl.smart.ticket.dto.request.AdminUpdateUserRequest;
 import hcl.smart.ticket.dto.request.UpdateUserStatusRequest;
 import hcl.smart.ticket.dto.response.PageResponse;
 import hcl.smart.ticket.dto.response.UserResponse;
+import hcl.smart.ticket.enums.UserRole;
 import hcl.smart.ticket.security.UserPrincipal;
 import hcl.smart.ticket.service.UserManagementService;
 import hcl.smart.ticket.util.PageableFactory;
@@ -39,9 +40,11 @@ public class AdminUserController {
 			@RequestParam(defaultValue = "0") int page,
 			@RequestParam(defaultValue = "20") int size,
 			@RequestParam(defaultValue = "createdAt") String sortBy,
-			@RequestParam(defaultValue = "DESC") Sort.Direction direction) {
+			@RequestParam(defaultValue = "DESC") Sort.Direction direction,
+			@RequestParam(required = false) String search,
+			@RequestParam(required = false) UserRole role) {
 		return userManagementService.findUsers(
-				principal, PageableFactory.users(page, size, sortBy, direction));
+				principal, PageableFactory.users(page, size, sortBy, direction), search, role);
 	}
 
 	@GetMapping("/{id}")

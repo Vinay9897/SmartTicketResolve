@@ -101,6 +101,18 @@ class AdminManagementIntegrationTests {
 		assertThat(listed.statusCode()).isEqualTo(200);
 		assertThat(listed.body()).doesNotContain("passwordHash");
 		assertThat(objectMapper.readTree(listed.body()).path("content").isArray()).isTrue();
+		assertThat(listed.body()).contains(stored.getId().toString());
+		HttpResponse<String> filtered = sendJson(
+				"GET",
+				"/api/admin/users?page=0&size=10&role=SUPPORT_ENGINEER&search=Updated%20Engineer",
+				null,
+				admin.token());
+		JsonNode filteredUsers = objectMapper.readTree(filtered.body());
+		assertThat(filtered.statusCode()).isEqualTo(200);
+		assertThat(filteredUsers.path("totalElements").longValue()).isEqualTo(1);
+		assertThat(filteredUsers.path("content").get(0).path("id").asString()).isEqualTo(stored.getId().toString());
+		assertThat(sendJson("GET", "/api/admin/users?role=NOT_A_ROLE", null, admin.token()).statusCode())
+				.isEqualTo(400);
 
 		HttpResponse<String> duplicate = sendJson("POST", "/api/admin/users", createBody, admin.token());
 		assertThat(duplicate.statusCode()).isEqualTo(409);

@@ -19,5 +19,6 @@ public record TicketAiAnalysisResponse(
 		UUID reviewedById,
 		Instant reviewedAt,
 		AiAnalysisStatus status,
-		Instant createdAt) {
+		Instant createdAt,
+		String failureMessage) {
 }

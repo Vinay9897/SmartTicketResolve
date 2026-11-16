@@ -79,6 +79,44 @@ class TicketRepositoryDataJpaTest {
 		assertThat(highOpen.getTotalElements()).isEqualTo(3);
 	}
 
+	@Test
+	void assignmentOptionsIncludeOnlyActiveEngineersAndActiveTeamMembers() {
+		User teamEngineer = saveUser("team-engineer", UserRole.SUPPORT_ENGINEER);
+		User otherEngineer = saveUser("other-engineer", UserRole.SUPPORT_ENGINEER);
+		User employee = saveUser("employee", UserRole.EMPLOYEE);
+		User inactiveEngineer = userRepository.saveAndFlush(User.builder()
+				.name("inactive-engineer")
+				.email("inactive-engineer-" + UUID.randomUUID() + "@example.test")
+				.passwordHash("test-password-hash")
+				.role(UserRole.SUPPORT_ENGINEER)
+				.active(false)
+				.build());
+		SupportTeam activeTeam = supportTeamRepository.saveAndFlush(SupportTeam.builder()
+				.name("Active-" + UUID.randomUUID())
+				.build());
+		SupportTeam inactiveTeam = supportTeamRepository.saveAndFlush(SupportTeam.builder()
+				.name("Inactive-" + UUID.randomUUID())
+				.active(false)
+				.build());
+		teamMembershipRepository.saveAndFlush(
+				TeamMembership.builder().team(activeTeam).user(teamEngineer).build());
+		teamMembershipRepository.saveAndFlush(
+				TeamMembership.builder().team(inactiveTeam).user(otherEngineer).build());
+
+		assertThat(userRepository.findActiveSupportEngineersForTeam(UserRole.SUPPORT_ENGINEER, null))
+				.extracting(User::getId)
+				.contains(teamEngineer.getId(), otherEngineer.getId())
+				.doesNotContain(employee.getId(), inactiveEngineer.getId());
+		assertThat(userRepository.findActiveSupportEngineersForTeam(
+				UserRole.SUPPORT_ENGINEER, activeTeam.getId()))
+				.extracting(User::getId)
+				.containsExactly(teamEngineer.getId());
+		assertThat(supportTeamRepository.findAllByActiveTrueOrderByNameAsc())
+				.extracting(SupportTeam::getId)
+				.contains(activeTeam.getId())
+				.doesNotContain(inactiveTeam.getId());
+	}
+
 	private User saveUser(String prefix, UserRole role) {
 		return userRepository.saveAndFlush(User.builder()
 				.name(prefix)

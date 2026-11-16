@@ -363,7 +363,8 @@ function AiAnalysisPanel({ ticketId }) {
           className="min-h-36"
           icon={CircleAlert}
           title="Analysis could not be completed"
-          description="Your ticket was created successfully. The AI provider was unavailable, but support can still review your request."
+          description={analysis.failureMessage
+            || "Your ticket was created successfully. The AI provider was unavailable, but support can still review your request."}
         />
       </Card>
     );

@@ -126,9 +126,11 @@ class TicketAiAnalysisPersistenceServiceTest {
 
 		TicketAiAnalysisResponse response = persistenceService.failAnalysis(
 				new TicketAiAnalysisPersistenceService.AnalysisContext(
-						analysisId, ticketId, "title", "description", List.of()));
+						analysisId, ticketId, "title", "description", List.of()),
+				"AI analysis provider timed out");
 
 		assertThat(response.status()).isEqualTo(AiAnalysisStatus.FAILED);
+		assertThat(response.failureMessage()).isEqualTo("AI analysis provider timed out");
 		assertThat(response.issueSummary()).isNull();
 		assertThat(response.troubleshootingSteps()).isEmpty();
 	}

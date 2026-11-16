@@ -18,6 +18,10 @@ const TicketDetailsPage = lazy(() => import("./pages/employee/TicketDetailsPage.
 const MyTicketsPage = lazy(() => import("./pages/employee/MyTicketsPage.jsx"));
 const SupportTicketQueuePage = lazy(() => import("./pages/support/SupportTicketQueuePage.jsx"));
 const SupportTicketDetailsPage = lazy(() => import("./pages/support/SupportTicketDetailsPage.jsx"));
+const AdminUsersPage = lazy(() => import("./pages/AdminUsersPage.jsx"));
+const AdminCategoriesPage = lazy(() => import("./pages/AdminCategoriesPage.jsx"));
+const AdminTeamsPage = lazy(() => import("./pages/AdminTeamsPage.jsx"));
+const AdminTicketsPage = lazy(() => import("./pages/AdminTicketsPage.jsx"));
 
 function PageLoading() {
   return (
@@ -60,15 +64,18 @@ export default function App() {
             <Route element={<RoleBasedRoute allowedRoles={["SUPPORT_ENGINEER"]} />}>
               <Route path="/support/dashboard" element={<DashboardPage />} />
               <Route path="/support/tickets" element={<SupportTicketQueuePage />} />
-              <Route path="/support/tickets/assigned" element={<PreviewPage />} />
+              <Route
+                path="/support/tickets/assigned"
+                element={<SupportTicketQueuePage assignedOnly />}
+              />
               <Route path="/support/tickets/:ticketId" element={<SupportTicketDetailsPage />} />
             </Route>
             <Route element={<RoleBasedRoute allowedRoles={["ADMIN"]} />}>
               <Route path="/admin/dashboard" element={<DashboardPage />} />
-              <Route path="/admin/tickets" element={<PreviewPage />} />
-              <Route path="/admin/users" element={<PreviewPage />} />
-              <Route path="/admin/categories" element={<PreviewPage />} />
-              <Route path="/admin/teams" element={<PreviewPage />} />
+              <Route path="/admin/tickets" element={<AdminTicketsPage />} />
+              <Route path="/admin/users" element={<AdminUsersPage />} />
+              <Route path="/admin/categories" element={<AdminCategoriesPage />} />
+              <Route path="/admin/teams" element={<AdminTeamsPage />} />
             </Route>
           </Route>
         </Route>

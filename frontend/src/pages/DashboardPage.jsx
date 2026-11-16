@@ -19,6 +19,7 @@ import MetricCard from "../components/ui/MetricCard.jsx";
 import PageHeading from "../components/ui/PageHeading.jsx";
 import EmployeeDashboard from "./employee/EmployeeDashboard.jsx";
 import SupportDashboard from "./support/SupportDashboard.jsx";
+import AdminDashboard from "./AdminDashboard.jsx";
 
 const dashboardByRole = {
   EMPLOYEE: {
@@ -110,6 +111,9 @@ export default function DashboardPage() {
   }
   if (role === "SUPPORT_ENGINEER" && !previewMode) {
     return <SupportDashboard engineer={user} />;
+  }
+  if (role === "ADMIN" && !previewMode) {
+    return <AdminDashboard />;
   }
   const dashboard = dashboardByRole[role] ?? dashboardByRole.EMPLOYEE;
   const ActionIcon = dashboard.action.icon;

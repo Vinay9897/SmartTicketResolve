@@ -45,7 +45,7 @@ public class TicketAiAnalysisWorkflowService {
 			return persistenceService.completeAnalysis(context, result);
 		} catch (AiAnalysisException exception) {
 			LOGGER.warn("AI analysis failed for ticket {}: {}", context.ticketId(), exception.getMessage());
-			return persistenceService.failAnalysis(context);
+			return persistenceService.failAnalysis(context, exception.getMessage());
 		}
 	}
 }

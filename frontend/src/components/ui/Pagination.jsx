@@ -1,6 +1,6 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
-export default function Pagination({ page, pageSize, totalItems, onPageChange }) {
+export default function Pagination({ page, pageSize, totalItems, onPageChange, itemLabel = "tickets" }) {
   const totalPages = Math.ceil(totalItems / pageSize);
   const firstItem = totalItems === 0 ? 0 : (page - 1) * pageSize + 1;
   const lastItem = Math.min(page * pageSize, totalItems);
@@ -9,7 +9,7 @@ export default function Pagination({ page, pageSize, totalItems, onPageChange })
     <nav aria-label="Pagination" className="flex flex-col gap-3 border-t border-line px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
       <p className="text-xs text-muted" aria-live="polite">
         Showing <span className="font-medium text-slate-700">{firstItem}-{lastItem}</span> of{" "}
-        <span className="font-medium text-slate-700">{totalItems}</span> tickets
+        <span className="font-medium text-slate-700">{totalItems}</span> {itemLabel}
       </p>
       <div className="flex items-center gap-2">
         <button

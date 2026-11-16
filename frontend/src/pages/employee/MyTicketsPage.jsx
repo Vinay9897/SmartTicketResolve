@@ -291,7 +291,7 @@ export default function MyTicketsPage() {
                   Create your first ticket
                 </Link>
               </div>
-            ) : (
+            ) : filteredTickets.length > 0 && (
               <Pagination
                 onPageChange={setPage}
                 page={pageCount ? page : 1}

@@ -10,6 +10,7 @@ import hcl.smart.ticket.dto.request.UpdateUserStatusRequest;
 import hcl.smart.ticket.dto.response.PageResponse;
 import hcl.smart.ticket.dto.response.UserResponse;
 import hcl.smart.ticket.entity.User;
+import hcl.smart.ticket.enums.UserRole;
 import hcl.smart.ticket.exception.EmailAlreadyRegisteredException;
 import hcl.smart.ticket.exception.PasswordTooLongException;
 import hcl.smart.ticket.exception.TicketNotFoundException;
@@ -31,9 +32,11 @@ public class UserManagementService {
 	private final AdminAuthorizationService authorizationService;
 
 	@Transactional(readOnly = true)
-	public PageResponse<UserResponse> findUsers(UserPrincipal actor, Pageable pageable) {
+	public PageResponse<UserResponse> findUsers(
+			UserPrincipal actor, Pageable pageable, String search, UserRole role) {
 		authorizationService.requireAdmin(actor);
-		Page<User> users = userRepository.findAll(pageable);
+		String normalizedSearch = search == null ? "" : search.trim();
+		Page<User> users = userRepository.searchUsers(role, normalizedSearch, pageable);
 		return PageResponse.from(users, UserResponse::from);
 	}
 

@@ -11,6 +11,7 @@ import hcl.smart.ticket.dto.request.ResolveTicketRequest;
 import hcl.smart.ticket.dto.response.PageResponse;
 import hcl.smart.ticket.dto.response.TicketCommentResponse;
 import hcl.smart.ticket.dto.response.TicketResponse;
+import hcl.smart.ticket.dto.response.TicketStatusHistoryResponse;
 import hcl.smart.ticket.event.TicketCreatedEvent;
 import hcl.smart.ticket.entity.SupportTeam;
 import hcl.smart.ticket.entity.Ticket;
@@ -242,6 +243,23 @@ public class TicketServiceImpl implements TicketService {
 				? commentRepository.findByTicketIdAndVisibility(ticket.getId(), CommentVisibility.PUBLIC, pageable)
 				: commentRepository.findByTicketId(ticket.getId(), pageable);
 		return PageResponse.from(comments, ticketMapper::toCommentResponse);
+	}
+
+	@Override
+	@Transactional(readOnly = true)
+	public PageResponse<TicketStatusHistoryResponse> getStatusHistory(
+			UserPrincipal actor, UUID ticketId, Pageable pageable) {
+		Ticket ticket = findAccessibleTicket(actor, ticketId);
+		requireSupportRole(actor);
+		Page<TicketStatusHistory> history = statusHistoryRepository.findByTicketId(ticket.getId(), pageable);
+		return PageResponse.from(history, entry -> new TicketStatusHistoryResponse(
+				entry.getId(),
+				ticket.getId(),
+				entry.getFromStatus(),
+				entry.getToStatus(),
+				entry.getNote(),
+				entry.getChangedBy() == null ? null : entry.getChangedBy().getName(),
+				entry.getChangedAt()));
 	}
 
 	private PageResponse<TicketResponse> mapTickets(Page<Ticket> tickets) {

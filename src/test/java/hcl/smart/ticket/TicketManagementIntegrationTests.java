@@ -6,6 +6,8 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 import hcl.smart.ticket.entity.SupportTeam;
@@ -252,6 +254,60 @@ class TicketManagementIntegrationTests {
 				objectMapper.createObjectNode().put("comment", "Late comment").toString(),
 				employee.token()).statusCode()).isEqualTo(409);
 		assertThat(ticketStatusHistoryRepository.count()).isGreaterThanOrEqualTo(4);
+		HttpResponse<String> statusHistory = send(
+				"GET", "/api/support/tickets/" + ticketId + "/status-history?page=0&size=100",
+				null, engineer.token());
+		assertThat(statusHistory.statusCode()).isEqualTo(200);
+		JsonNode historyBody = objectMapper.readTree(statusHistory.body());
+		JsonNode historyEntries = historyBody.path("content");
+		assertThat(historyBody.path("totalElements").intValue()).isGreaterThanOrEqualTo(4);
+		assertThat(historyEntries.size()).isGreaterThanOrEqualTo(4);
+		assertThat(historyEntries.get(0).path("toStatus").asString()).isEqualTo("OPEN");
+		List<String> historyStatuses = new ArrayList<>();
+		historyEntries.forEach(entry -> historyStatuses.add(entry.path("toStatus").asString()));
+		assertThat(historyStatuses).contains("IN_PROGRESS", "RESOLVED", "CLOSED");
+		assertThat(send("GET", "/api/support/tickets/" + ticketId + "/status-history", null, employee.token())
+				.statusCode()).isEqualTo(403);
+	}
+
+	@Test
+	void assignmentOptionsAreRoleProtectedAndRespectTeamMembership() throws Exception {
+		Auth engineer = createUser("options-engineer", UserRole.SUPPORT_ENGINEER);
+		Auth teamEngineer = createUser("team-options-engineer", UserRole.SUPPORT_ENGINEER);
+		Auth employee = registerEmployee("options-employee");
+		Auth admin = createUser("options-admin", UserRole.ADMIN);
+		SupportTeam team = supportTeamRepository.saveAndFlush(SupportTeam.builder()
+				.name("Options Team-" + UUID.randomUUID())
+				.build());
+		teamMembershipRepository.saveAndFlush(TeamMembership.builder()
+				.team(team)
+				.user(userRepository.findById(UUID.fromString(teamEngineer.id())).orElseThrow())
+				.build());
+
+		HttpResponse<String> allEngineers = send(
+				"GET", "/api/support/assignment-options/engineers", null, engineer.token());
+		assertThat(allEngineers.statusCode()).isEqualTo(200);
+		JsonNode engineerOptions = objectMapper.readTree(allEngineers.body());
+		assertThat(jsonIds(engineerOptions))
+				.contains(engineer.id(), teamEngineer.id());
+		assertThat(engineerOptions.get(0).has("email")).isFalse();
+
+		HttpResponse<String> teamEngineers = send(
+				"GET", "/api/support/assignment-options/engineers?teamId=" + team.getId(),
+				null, engineer.token());
+		assertThat(teamEngineers.statusCode()).isEqualTo(200);
+		assertThat(jsonIds(objectMapper.readTree(teamEngineers.body())))
+				.containsExactly(teamEngineer.id());
+
+		HttpResponse<String> teams = send(
+				"GET", "/api/support/assignment-options/teams", null, engineer.token());
+		assertThat(teams.statusCode()).isEqualTo(200);
+		assertThat(jsonIds(objectMapper.readTree(teams.body())))
+				.contains(team.getId().toString());
+		assertThat(send("GET", "/api/support/assignment-options/engineers", null, employee.token())
+				.statusCode()).isEqualTo(403);
+		assertThat(send("GET", "/api/support/assignment-options/teams", null, admin.token())
+				.statusCode()).isEqualTo(403);
 	}
 
 	@Test
@@ -355,6 +411,12 @@ class TicketManagementIntegrationTests {
 			request.header(HttpHeaders.AUTHORIZATION, "Bearer " + token);
 		}
 		return HttpClient.newHttpClient().send(request.build(), HttpResponse.BodyHandlers.ofString());
+	}
+
+	private List<String> jsonIds(JsonNode items) {
+		List<String> ids = new ArrayList<>();
+		items.forEach(item -> ids.add(item.path("id").asString()));
+		return ids;
 	}
 
 	private record Auth(String id, String token, String email) {

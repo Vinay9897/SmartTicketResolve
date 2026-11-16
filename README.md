@@ -48,7 +48,7 @@ changes invalidate previously issued tokens.
 - `/api/admin/tickets` provides admin-wide paginated ticket reads.
 - `PUT /api/admin/tickets/{ticketId}/assign` lets administrators assign/reassign an active support
   engineer, optionally paired with a team the engineer belongs to.
-- `/api/admin/users` provides paginated user management. Passwords are BCrypt-hashed and never
+- `/api/admin/users` provides paginated user management with name/email search and role filtering. Passwords are BCrypt-hashed and never
   included in responses; an optional password on user update replaces the current hash.
 - `/api/admin/categories` and `/api/admin/teams` provide catalog management. Deleting a category
   or team deactivates it to preserve ticket and assignment history; PUT can reactivate it with

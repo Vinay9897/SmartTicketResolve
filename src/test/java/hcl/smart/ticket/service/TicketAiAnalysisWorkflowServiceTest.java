@@ -65,10 +65,10 @@ class TicketAiAnalysisWorkflowServiceTest {
 		when(persistenceService.beginSystemAnalysis(ticketId)).thenReturn(context);
 		when(aiAnalysisService.analyze(context.toRequest()))
 				.thenThrow(new AiAnalysisException("AI API key is not configured"));
-		when(persistenceService.failAnalysis(context)).thenReturn(failed);
+		when(persistenceService.failAnalysis(context, "AI API key is not configured")).thenReturn(failed);
 
 		assertThat(workflowService.analyzeCreatedTicket(ticketId)).isSameAs(failed);
-		verify(persistenceService).failAnalysis(context);
+		verify(persistenceService).failAnalysis(context, "AI API key is not configured");
 		verify(persistenceService, never()).completeAnalysis(eq(context), any(AiAnalysisResult.class));
 	}
 
@@ -94,6 +94,7 @@ class TicketAiAnalysisWorkflowServiceTest {
 				null,
 				null,
 				status,
-				Instant.now());
+				Instant.now(),
+				null);
 	}
 }
