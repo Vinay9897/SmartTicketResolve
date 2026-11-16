@@ -64,7 +64,9 @@ All records below are immutable Java records; JSON uses their declared component
 
 ### Ticket, comment, and AI analysis
 
-- `CreateTicketRequest`: `title`, `description`, optional `categoryId`, optional `priority`.
+- `CreateTicketRequest`: required `title` (max 200) and `description` (max 20,000), optional
+  `categoryId`, optional `priority`. When omitted, priority defaults to `MEDIUM` and no category
+  is assigned.
 - `TicketResponse`: `id`, `title`, `description`, `issueSummary`, `categoryId`, `categoryName`,
   `priority`, `status`, `createdById`, `createdByName`, `assignedToId`, `assignedToName`,
   `supportTeamId`, `supportTeamName`, `resolutionNotes`, `createdAt`, `updatedAt`, `resolvedAt`.
@@ -117,7 +119,7 @@ access.
 
 | Method and path | Parameters / body | Success response | Authentication / role | Errors |
 |---|---|---|---|---|
-| `POST /api/tickets` | Body: `CreateTicketRequest` | 201 `TicketResponse`; initial status is `OPEN`, default priority `MEDIUM` | `EMPLOYEE` | 400 invalid input, 403 other role/inactive category, 404 category |
+| `POST /api/tickets` | Body: `CreateTicketRequest` | 201 `TicketResponse`; initial status is `OPEN`, default priority `MEDIUM`; automatic AI analysis is enabled by default | `EMPLOYEE` | 400 invalid input, 403 other role/inactive category, 404 category |
 | `GET /api/tickets/my` | Query: `page=0`, `size=20`, `sortBy=createdAt`, `direction=DESC` | 200 `PageResponse<TicketResponse>` | `EMPLOYEE` | 400 invalid paging/sort |
 | `GET /api/tickets/{ticketId}` | Path: UUID `ticketId` | 200 `TicketResponse` | Authenticated; service enforces ticket access | 403, 404 |
 | `POST /api/tickets/{ticketId}/comments` | Path `ticketId`; body `AddTicketCommentRequest` | 201 `TicketCommentResponse` | Ticket participant with access; employee may add `PUBLIC` only | 400, 403, 404, 409 closed ticket or internal employee comment |
@@ -143,6 +145,12 @@ team is supplied, team membership. Closed tickets cannot be assigned or changed.
 | `PUT /api/support/tickets/{ticketId}/assign` | Path `ticketId`; body `AssignTicketRequest` | 200 `TicketResponse` | `SUPPORT_ENGINEER` with ticket access | 400, 403, 404, 409 invalid assignee/team/closed ticket |
 | `PUT /api/support/tickets/{ticketId}/resolve` | Path `ticketId`; body `ResolveTicketRequest` | 200 `TicketResponse` with `RESOLVED` status | `SUPPORT_ENGINEER` with ticket access | 400, 403, 404, 409 already resolved/closed |
 | `PUT /api/support/tickets/{ticketId}/ai-analysis` | Path `ticketId`; body `ReviewTicketAiAnalysisRequest` | 200 `TicketAiAnalysisResponse` | `SUPPORT_ENGINEER` with ticket access | 400, 403, 404, 409 analysis not completed/category unavailable |
+
+For the support queue, category, priority, and status filters use the corresponding query parameters
+on `GET /api/support/tickets/filter`; creation-date ordering uses `sortBy=createdAt` and
+`direction=ASC|DESC`. The API has no ticket title/ID search parameter, so the queue UI searches the
+accessible results client-side. Support category choices are derived from accessible ticket data
+because `GET /api/admin/categories` is administrator-only.
 
 Allowed ticket statuses are `OPEN`, `IN_PROGRESS`, `WAITING_FOR_EMPLOYEE`, `RESOLVED`, `CLOSED`.
 Transitions are validated in the service; resolution uses the separate `/resolve` operation with
@@ -226,10 +234,11 @@ exposure, not controller methods.
 
 | Role / screen | API calls |
 |---|---|
-| Sign in / registration | `POST /api/auth/login`; `POST /api/auth/register`; then `GET /api/auth/me` to refresh profile |
+| Sign in / registration | `POST /api/auth/login` or `POST /api/auth/register`; each returns `AuthResponse` including the user profile. `GET /api/auth/me` is available for authenticated profile retrieval. |
+| Employee dashboard | `GET /api/tickets/my` (fetch paginated results to calculate complete ticket totals and status counts); `GET /api/tickets/{ticketId}/comments` for comments on the five most recently updated tickets |
 | Employee ticket list | `GET /api/tickets/my` |
-| Employee ticket submission | `POST /api/tickets`; category selection is optional because no non-admin category-list API exists |
-| Employee ticket detail / comments | `GET /api/tickets/{ticketId}`; `GET /api/tickets/{ticketId}/comments`; `POST /api/tickets/{ticketId}/comments` |
+| Employee ticket submission | `POST /api/tickets`; category and priority are optional (default priority is `MEDIUM`); category selection is omitted because no non-admin category-list API exists |
+| Employee ticket detail / comments | `GET /api/tickets/{ticketId}`; `GET /api/tickets/{ticketId}/comments`; `POST /api/tickets/{ticketId}/comments`; the frontend retrieves `GET /api/tickets/{ticketId}/ai-analysis` to display analysis generated automatically on creation |
 | Employee AI analysis | `POST /api/tickets/{ticketId}/ai-analysis`; `GET /api/tickets/{ticketId}/ai-analysis` |
 | Support queue / filters | `GET /api/support/tickets`; `GET /api/support/tickets/filter` |
 | Support ticket detail / conversation | `GET /api/support/tickets/{ticketId}`; shared ticket comment GET/POST endpoints |
@@ -240,6 +249,22 @@ exposure, not controller methods.
 | Admin user management | `/api/admin/users` GET/POST; `/api/admin/users/{id}` GET/PUT; `/api/admin/users/{id}/status` PATCH |
 | Admin category management | `/api/admin/categories` GET/POST; `/api/admin/categories/{id}` PUT/DELETE |
 | Admin team management | `/api/admin/teams` GET/POST; `/api/admin/teams/{id}` PUT/DELETE |
+
+## Frontend authentication integration notes
+
+- The frontend validates the returned `AuthResponse` and stores only the short-lived access
+  token and its expiry in tab-scoped `sessionStorage`; passwords and user profiles are not
+  persisted. Because browser storage is readable by JavaScript, this remains exposed to XSS.
+- After a page refresh, the frontend verifies the stored token through `GET /api/auth/me` before
+  restoring the user or rendering protected routes. The role used for routing comes from that
+  response, not from stored browser data.
+- Session expiry is calculated from the response's `expiresIn` value. Expired/invalid sessions
+  and protected-request 401s clear the saved session, while a 403 displays an access-restricted
+  state. Frontend role checks are UX controls only; backend authorization remains authoritative.
+- Local development uses `VITE_API_BASE_URL=/api` and the Vite proxy target in
+  `SMARTRESOLVE_BACKEND_PROXY_TARGET` (default `http://localhost:8080`). The backend currently
+  has no CORS configuration, so production deployments should use a same-origin reverse proxy
+  or configure CORS for the deployed frontend origin.
 
 ## Contract gaps and frontend implications
 
