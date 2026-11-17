@@ -3,10 +3,14 @@ package hcl.smart.ticket.controller;
 import java.util.List;
 import java.util.UUID;
 
+import hcl.smart.ticket.dto.request.AssignSupportTeamMembersRequest;
 import hcl.smart.ticket.dto.request.SaveNamedResourceRequest;
 import hcl.smart.ticket.dto.response.NamedResourceResponse;
+import hcl.smart.ticket.dto.response.SupportTeamMemberResponse;
+import hcl.smart.ticket.dto.response.SupportTeamOverviewResponse;
 import hcl.smart.ticket.security.UserPrincipal;
 import hcl.smart.ticket.service.CatalogManagementService;
+import hcl.smart.ticket.service.SupportTeamMembershipService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -27,6 +31,38 @@ import org.springframework.web.bind.annotation.RestController;
 public class AdminTeamController {
 
 	private final CatalogManagementService catalogManagementService;
+	private final SupportTeamMembershipService teamMembershipService;
+
+	@GetMapping("/overview")
+	public List<SupportTeamOverviewResponse> getTeamOverviews(
+			@AuthenticationPrincipal UserPrincipal principal) {
+		return teamMembershipService.getTeamOverviews(principal);
+	}
+
+	@GetMapping("/{id}/members")
+	public List<SupportTeamMemberResponse> getTeamMembers(
+			@AuthenticationPrincipal UserPrincipal principal,
+			@PathVariable UUID id) {
+		return teamMembershipService.getTeamMembers(principal, id);
+	}
+
+	@PostMapping("/{id}/members")
+	@ResponseStatus(HttpStatus.CREATED)
+	public List<SupportTeamMemberResponse> assignMembers(
+			@AuthenticationPrincipal UserPrincipal principal,
+			@PathVariable UUID id,
+			@Valid @RequestBody AssignSupportTeamMembersRequest request) {
+		return teamMembershipService.assignMembers(principal, id, request);
+	}
+
+	@DeleteMapping("/{id}/members/{engineerId}")
+	@ResponseStatus(HttpStatus.NO_CONTENT)
+	public void unassignMember(
+			@AuthenticationPrincipal UserPrincipal principal,
+			@PathVariable UUID id,
+			@PathVariable UUID engineerId) {
+		teamMembershipService.unassignMember(principal, id, engineerId);
+	}
 
 	@PostMapping
 	@ResponseStatus(HttpStatus.CREATED)

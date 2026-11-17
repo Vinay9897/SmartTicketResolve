@@ -15,7 +15,9 @@ import hcl.smart.ticket.exception.EmailAlreadyRegisteredException;
 import hcl.smart.ticket.exception.PasswordTooLongException;
 import hcl.smart.ticket.exception.TicketNotFoundException;
 import hcl.smart.ticket.repository.UserRepository;
+import hcl.smart.ticket.repository.TeamMembershipRepository;
 import hcl.smart.ticket.security.UserPrincipal;
+import hcl.smart.ticket.exception.TicketOperationException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -28,6 +30,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class UserManagementService {
 
 	private final UserRepository userRepository;
+	private final TeamMembershipRepository teamMembershipRepository;
 	private final PasswordEncoder passwordEncoder;
 	private final AdminAuthorizationService authorizationService;
 
@@ -70,6 +73,11 @@ public class UserManagementService {
 	public UserResponse updateUser(UserPrincipal actor, UUID userId, AdminUpdateUserRequest request) {
 		authorizationService.requireAdmin(actor);
 		User user = findUser(userId);
+		if (user.getRole() == UserRole.SUPPORT_ENGINEER
+				&& request.role() != UserRole.SUPPORT_ENGINEER
+				&& teamMembershipRepository.existsByUserId(userId)) {
+			throw new TicketOperationException("Remove this support engineer from all teams before changing their role");
+		}
 		String email = normalizeEmail(request.email());
 		if (!email.equalsIgnoreCase(user.getEmail())
 				&& userRepository.findByEmailIgnoreCase(email).isPresent()) {

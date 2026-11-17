@@ -17,6 +17,7 @@ import hcl.smart.ticket.enums.TicketPriority;
 import hcl.smart.ticket.enums.TicketStatus;
 import hcl.smart.ticket.enums.UserRole;
 import hcl.smart.ticket.repository.SupportTeamRepository;
+import hcl.smart.ticket.repository.TeamMembershipRepository;
 import hcl.smart.ticket.repository.TicketCategoryRepository;
 import hcl.smart.ticket.repository.TicketRepository;
 import hcl.smart.ticket.repository.UserRepository;
@@ -51,6 +52,9 @@ class AdminManagementIntegrationTests {
 
 	@Autowired
 	private SupportTeamRepository teamRepository;
+
+	@Autowired
+	private TeamMembershipRepository teamMembershipRepository;
 
 	@Autowired
 	private TicketRepository ticketRepository;
@@ -175,6 +179,78 @@ class AdminManagementIntegrationTests {
 	}
 
 	@Test
+	void adminManagesSupportTeamMembersWithoutDeletingAccounts() throws Exception {
+		Auth admin = createUser("membership-admin", UserRole.ADMIN);
+		Auth employee = createUser("membership-employee", UserRole.EMPLOYEE);
+		User engineerOne = createUserEntity("member-one", UserRole.SUPPORT_ENGINEER);
+		User engineerTwo = createUserEntity("member-two", UserRole.SUPPORT_ENGINEER);
+		User nonEngineer = createUserEntity("not-engineer", UserRole.EMPLOYEE);
+		SupportTeam team = teamRepository.saveAndFlush(SupportTeam.builder()
+				.name("Membership-" + UUID.randomUUID())
+				.build());
+
+		assertThat(sendJson("GET", "/api/admin/teams/overview", null, employee.token()).statusCode())
+				.isEqualTo(403);
+		assertThat(sendJson("GET", "/api/admin/teams/" + team.getId() + "/members", null, employee.token())
+				.statusCode()).isEqualTo(403);
+		assertThat(sendJson("POST", "/api/admin/teams/" + team.getId() + "/members",
+				assignMembersBody(engineerOne.getId()), employee.token()).statusCode()).isEqualTo(403);
+		HttpResponse<String> overview = sendJson("GET", "/api/admin/teams/overview", null, admin.token());
+		assertThat(overview.statusCode()).isEqualTo(200);
+		assertThat(findTeamMemberCount(objectMapper.readTree(overview.body()), team.getId().toString())).isZero();
+		assertThat(sendJson("GET", "/api/admin/teams/" + team.getId() + "/members", null, admin.token()).statusCode())
+				.isEqualTo(200);
+
+		String assignBody = assignMembersBody(engineerOne.getId(), engineerTwo.getId());
+		HttpResponse<String> assigned = sendJson(
+				"POST", "/api/admin/teams/" + team.getId() + "/members", assignBody, admin.token());
+		assertThat(assigned.statusCode()).isEqualTo(201);
+		assertThat(objectMapper.readTree(assigned.body()).size()).isEqualTo(2);
+		assertThat(teamMembershipRepository.existsByTeamIdAndUserId(team.getId(), engineerOne.getId())).isTrue();
+		assertThat(teamMembershipRepository.existsByTeamIdAndUserId(team.getId(), engineerTwo.getId())).isTrue();
+		JsonNode updatedOverview = objectMapper.readTree(
+				sendJson("GET", "/api/admin/teams/overview", null, admin.token()).body());
+		assertThat(findTeamMemberCount(updatedOverview, team.getId().toString())).isEqualTo(2);
+
+		HttpResponse<String> duplicate = sendJson(
+				"POST", "/api/admin/teams/" + team.getId() + "/members",
+				assignMembersBody(engineerOne.getId()),
+				admin.token());
+		assertThat(duplicate.statusCode()).isEqualTo(409);
+
+		HttpResponse<String> invalidRole = sendJson(
+				"POST", "/api/admin/teams/" + team.getId() + "/members",
+				assignMembersBody(nonEngineer.getId()),
+				admin.token());
+		assertThat(invalidRole.statusCode()).isEqualTo(409);
+		assertThat(teamMembershipRepository.existsByTeamIdAndUserId(team.getId(), nonEngineer.getId())).isFalse();
+
+		assertThat(sendJson("POST", "/api/admin/teams/" + UUID.randomUUID() + "/members",
+				assignMembersBody(engineerOne.getId()),
+				admin.token()).statusCode()).isEqualTo(404);
+		assertThat(sendJson("POST", "/api/admin/teams/" + team.getId() + "/members",
+				assignMembersBody(UUID.randomUUID()),
+				admin.token()).statusCode()).isEqualTo(404);
+
+		HttpResponse<String> roleChange = sendJson(
+				"PUT", "/api/admin/users/" + engineerOne.getId(),
+				objectMapper.createObjectNode()
+						.put("name", engineerOne.getName())
+						.put("email", engineerOne.getEmail())
+						.put("role", "EMPLOYEE")
+						.toString(),
+				admin.token());
+		assertThat(roleChange.statusCode()).isEqualTo(409);
+
+		assertThat(sendJson("DELETE", "/api/admin/teams/" + team.getId()
+				+ "/members/" + engineerOne.getId(), null, employee.token()).statusCode()).isEqualTo(403);
+		assertThat(sendJson("DELETE", "/api/admin/teams/" + team.getId()
+				+ "/members/" + engineerOne.getId(), null, admin.token()).statusCode()).isEqualTo(204);
+		assertThat(teamMembershipRepository.existsByTeamIdAndUserId(team.getId(), engineerOne.getId())).isFalse();
+		assertThat(userRepository.existsById(engineerOne.getId())).isTrue();
+	}
+
+	@Test
 	void adminDashboardReturnsAggregatedCountsAndRejectsOtherRoles() throws Exception {
 		Auth admin = createUser("dashboard-admin", UserRole.ADMIN);
 		Auth employee = createUser("dashboard-employee", UserRole.EMPLOYEE);
@@ -225,6 +301,32 @@ class AdminManagementIntegrationTests {
 			}
 		}
 		return 0;
+	}
+
+	private long findTeamMemberCount(JsonNode values, String teamId) {
+		for (JsonNode value : values) {
+			if (teamId.equals(value.path("id").asString())) {
+				return value.path("memberCount").longValue();
+			}
+		}
+		return 0;
+	}
+
+	private String assignMembersBody(UUID... engineerIds) {
+		var ids = objectMapper.createArrayNode();
+		for (UUID engineerId : engineerIds) {
+			ids.add(engineerId.toString());
+		}
+		return objectMapper.createObjectNode().set("engineerIds", ids).toString();
+	}
+
+	private User createUserEntity(String prefix, UserRole role) {
+		return userRepository.saveAndFlush(User.builder()
+				.name(prefix)
+				.email(prefix + "-" + UUID.randomUUID() + "@example.test")
+				.passwordHash(passwordEncoder.encode(PASSWORD))
+				.role(role)
+				.build());
 	}
 
 	private Auth createUser(String prefix, UserRole role) throws Exception {

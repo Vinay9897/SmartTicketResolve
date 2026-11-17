@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { Eye, Pencil, Plus, ToggleLeft, ToggleRight } from "lucide-react";
+import { Eye, Pencil, Plus, ToggleLeft, ToggleRight, UsersRound } from "lucide-react";
 import toast from "react-hot-toast";
 import AdminTeamFormDialog from "../components/AdminTeamFormDialog.jsx";
+import AdminTeamMembersDialog from "../components/AdminTeamMembersDialog.jsx";
 import Badge from "../components/ui/Badge.jsx";
 import Button from "../components/ui/Button.jsx";
 import Card, { CardHeader } from "../components/ui/Card.jsx";
@@ -13,7 +14,7 @@ import PageHeading from "../components/ui/PageHeading.jsx";
 import Skeleton from "../components/ui/Skeleton.jsx";
 import {
   deactivateAdminTeam,
-  getAdminTeams,
+  getAdminTeamOverviews,
   updateAdminTeam,
 } from "../services/adminTeamService.js";
 
@@ -80,7 +81,7 @@ function TeamDetailsDialog({ team, onClose }) {
         </div>
       </dl>
       <p className="mt-5 rounded-lg bg-slate-50 px-3 py-2 text-xs leading-5 text-muted">
-        Engineer membership is not available through the current backend API.
+        Assigned engineers: {team.memberCount}
       </p>
     </Modal>
   );
@@ -90,6 +91,7 @@ export default function AdminTeamsPage() {
   const [retryCount, setRetryCount] = useState(0);
   const [result, setResult] = useState({ requestId: -1, status: "loading", teams: [], error: "" });
   const [dialog, setDialog] = useState(null);
+  const [managingTeam, setManagingTeam] = useState(null);
   const [deactivatingTeam, setDeactivatingTeam] = useState(null);
   const [changingTeamId, setChangingTeamId] = useState(null);
 
@@ -99,7 +101,7 @@ export default function AdminTeamsPage() {
 
   useEffect(() => {
     const controller = new AbortController();
-    getAdminTeams({ signal: controller.signal })
+    getAdminTeamOverviews({ signal: controller.signal })
       .then((items) => {
         setResult({ requestId: retryCount, status: "success", teams: items, error: "" });
       })
@@ -168,6 +170,17 @@ export default function AdminTeamsPage() {
       ),
     },
     {
+      key: "memberCount",
+      header: "Members",
+      className: "whitespace-nowrap",
+      render: (team) => (
+        <span className="inline-flex items-center gap-1.5 text-sm text-slate-700">
+          <UsersRound aria-hidden="true" className="size-4 text-slate-400" />
+          {team.memberCount}
+        </span>
+      ),
+    },
+    {
       key: "active",
       header: "Status",
       render: (team) => (
@@ -182,6 +195,16 @@ export default function AdminTeamsPage() {
       className: "whitespace-nowrap",
       render: (team) => (
         <div className="flex items-center gap-2">
+          <Button
+            aria-label={`Manage members of ${team.name}`}
+            className="size-10 shrink-0 px-0"
+            onClick={() => setManagingTeam(team)}
+            title="Manage team members"
+            type="button"
+            variant="ghost"
+          >
+            <UsersRound aria-hidden="true" className="size-5 shrink-0" />
+          </Button>
           <Button
             aria-label={`View ${team.name} details`}
             className="size-10 shrink-0 px-0"
@@ -295,6 +318,14 @@ export default function AdminTeamsPage() {
 
       {dialog?.kind === "details" && (
         <TeamDetailsDialog team={dialog.team} onClose={() => setDialog(null)} />
+      )}
+      {managingTeam && (
+        <AdminTeamMembersDialog
+          key={managingTeam.id}
+          onClose={() => setManagingTeam(null)}
+          onMembershipChanged={refreshTeams}
+          team={managingTeam}
+        />
       )}
       {(dialog?.kind === "create" || dialog?.kind === "edit") && (
         <AdminTeamFormDialog

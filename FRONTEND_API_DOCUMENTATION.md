@@ -1,7 +1,7 @@
 # SmartResolve Backend API Contract for Frontend
 
 This document records the backend contract observed in the current Spring controllers, DTOs,
-security configuration, and service implementations. It describes 38 application REST endpoints;
+security configuration, and service implementations. It describes 42 application REST endpoints;
 paths are relative to the backend origin and there is no configured API context prefix.
 
 ## Authentication and shared conventions
@@ -93,6 +93,10 @@ All records below are immutable Java records; JSON uses their declared component
 - `SaveNamedResourceRequest`: `name`, optional `description`, optional `active`.
   Create always sets `active=true`; update applies `active` only if supplied.
 - `NamedResourceResponse`: `id`, `name`, `description`, `active`.
+- `SupportTeamOverviewResponse`: `id`, `name`, `description`, `active`, and `memberCount`.
+- `SupportTeamMemberResponse`: support engineer `id`, `name`, `email`, account `active` state,
+  and `joinedAt`.
+- `AssignSupportTeamMembersRequest`: `engineerIds`, a non-empty list of support engineer UUIDs.
 - `PageResponse<T>`: `content`, `page`, `size`, `totalElements`, `totalPages`, `first`, `last`.
 - `DashboardCountResponse`: `key`, `id`, `name`, `count`.
 - `TicketDashboardSummary`: `totalTickets`, `openTickets`, `inProgressTickets`,
@@ -203,6 +207,10 @@ resource (does not physically remove it), returning 204. A PUT can reactivate it
 | `GET /api/admin/teams` | — | 200 array of `NamedResourceResponse`, includes inactive teams | `ADMIN` | 403 |
 | `PUT /api/admin/teams/{id}` | Path UUID `id`; body `SaveNamedResourceRequest` | 200 `NamedResourceResponse` | `ADMIN` | 400, 404, 409 duplicate name |
 | `DELETE /api/admin/teams/{id}` | Path `id` | 204, no body | `ADMIN` | 404 |
+| `GET /api/admin/teams/overview` | — | 200 array of `SupportTeamOverviewResponse`, including membership counts | `ADMIN` | 403 |
+| `GET /api/admin/teams/{id}/members` | Path team UUID `id` | 200 array of `SupportTeamMemberResponse` | `ADMIN` | 403, 404 |
+| `POST /api/admin/teams/{id}/members` | Path team UUID `id`; body `AssignSupportTeamMembersRequest` | 201 array of current `SupportTeamMemberResponse` | `ADMIN` | 400 empty/duplicate IDs, 404 team/user, 409 inactive team/user, non-engineer, or duplicate membership |
+| `DELETE /api/admin/teams/{id}/members/{engineerId}` | Path team and engineer UUIDs | 204, no body; unassigns the engineer from that team without deleting the user account | `ADMIN` | 403, 404 |
 
 ### Administrator dashboard and reporting
 
@@ -255,7 +263,7 @@ exposure, not controller methods.
 | Admin ticket browsing / assignment | `GET /api/admin/tickets`; `GET /api/admin/tickets/{ticketId}`; `PUT /api/admin/tickets/{ticketId}/assign`; active engineer options from `GET /api/admin/users?role=SUPPORT_ENGINEER`; active team options from `GET /api/admin/teams` |
 | Admin user management | `/api/admin/users` GET/POST; `/api/admin/users/{id}` GET/PUT; `/api/admin/users/{id}/status` PATCH |
 | Admin category management | `/api/admin/categories` GET/POST; `/api/admin/categories/{id}` PUT/DELETE |
-| Admin team management | `/api/admin/teams` GET/POST; `/api/admin/teams/{id}` PUT/DELETE |
+| Admin team management | `/api/admin/teams` GET/POST; `/api/admin/teams/{id}` PUT/DELETE; `/api/admin/teams/overview`; `/api/admin/teams/{id}/members` GET/POST; `/api/admin/teams/{id}/members/{engineerId}` DELETE; active available engineers are paged from `/api/admin/users?role=SUPPORT_ENGINEER` |
 
 ## Frontend authentication integration notes
 
@@ -280,10 +288,8 @@ These are absences or limitations observed in the current backend, not proposed 
 1. There is no employee/support-facing category list. `GET /api/admin/categories` is admin-only,
    although employees can optionally send `categoryId` when creating a ticket and support queues
    can filter by `categoryId`.
-2. There is no support team membership management API. Assignment validates that an engineer is a
-   member of a selected team, but the admin frontend cannot manage memberships through REST.
-3. There is no team/category member detail endpoint; team/category list responses expose only
-   `id`, `name`, `description`, and `active`.
+2. There is no team/category member detail endpoint for categories; the team member APIs are
+   documented above and do not alter category response contracts.
 4. Admin ticket listing is paginated but not filterable by category, priority, or status.
 5. Registration only creates `EMPLOYEE`; role selection and account administration are available
    only to an authenticated admin through user management.
