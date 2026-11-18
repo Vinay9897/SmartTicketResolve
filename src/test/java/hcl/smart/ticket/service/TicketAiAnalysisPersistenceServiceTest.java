@@ -181,6 +181,17 @@ class TicketAiAnalysisPersistenceServiceTest {
 	}
 
 	@Test
+	void rejectsAiGenerationFromSupportEngineerBeforeDatabaseAccess() {
+		assertThatThrownBy(() -> persistenceService.beginAnalysis(
+				principal(UUID.randomUUID(), UserRole.SUPPORT_ENGINEER),
+				UUID.randomUUID()))
+				.isInstanceOf(AccessDeniedException.class)
+				.hasMessage("Employee access is required to generate AI analysis");
+
+		verify(ticketRepository, never()).findById(any());
+	}
+
+	@Test
 	void reportsMissingLatestAnalysisAsNotFound() {
 		UUID ticketId = UUID.randomUUID();
 		UserPrincipal actor = principal(UUID.randomUUID(), UserRole.EMPLOYEE);

@@ -1,5 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, CalendarDays, CircleAlert, MessageSquareText, Send, UserRound, UsersRound } from "lucide-react";
+import {
+  ArrowLeft,
+  CalendarDays,
+  CircleAlert,
+  MessageSquareText,
+  Send,
+  Sparkles,
+  UserRound,
+  UsersRound,
+} from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import { toast } from "react-hot-toast";
 import AiRecommendationCard from "../../components/ui/AiRecommendationCard.jsx";
@@ -16,6 +25,7 @@ import {
   getAllTicketComments,
   getTicketAiAnalysis,
   getTicketById,
+  generateTicketAiAnalysis,
 } from "../../services/ticketService.js";
 
 function formatDate(value) {
@@ -259,6 +269,8 @@ function AiAnalysisPanel({ ticketId }) {
   const [retryCount, setRetryCount] = useState(0);
   const requestKey = `${ticketId}:${retryCount}`;
   const [result, setResult] = useState({ requestKey: "", status: "loading", analysis: null });
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generationError, setGenerationError] = useState("");
   const isLoading = result.requestKey !== requestKey;
   const status = isLoading ? "loading" : result.status;
   const analysis = isLoading ? null : result.analysis;
@@ -277,7 +289,13 @@ function AiAnalysisPanel({ ticketId }) {
       .catch((requestError) => {
         if (controller.signal.aborted) return;
         if (requestError.response?.status === 404) {
-          setResult({ requestKey, status: "missing", analysis: null });
+          const message = requestError.response.data?.message;
+          setResult({
+            requestKey,
+            status: "missing",
+            analysis: null,
+            message: typeof message === "string" ? message : "",
+          });
           return;
         }
         setResult({
@@ -290,6 +308,30 @@ function AiAnalysisPanel({ ticketId }) {
 
     return () => controller.abort();
   }, [requestKey, ticketId]);
+
+  async function generateAnalysis() {
+    setIsGenerating(true);
+    setGenerationError("");
+    try {
+      const analysisResponse = await generateTicketAiAnalysis(ticketId);
+      setResult({
+        requestKey,
+        status: analysisResponse.status === "PENDING" ? "pending" : "success",
+        analysis: analysisResponse,
+      });
+      if (analysisResponse.status === "FAILED") {
+        toast.error("AI analysis could not be completed. See the provider message below.");
+      } else {
+        toast.success("AI analysis is ready.");
+      }
+    } catch (requestError) {
+      const message = getErrorMessage(requestError);
+      setGenerationError(message);
+      toast.error(message);
+    } finally {
+      setIsGenerating(false);
+    }
+  }
 
   if (status === "loading") {
     return (
@@ -316,15 +358,16 @@ function AiAnalysisPanel({ ticketId }) {
     return (
       <Card className="border-purple-200">
         <CardHeader
-          description="Suggestions are advisory and do not change your ticket."
+          description={result.message}
           title="AI recommendation"
         />
-        <EmptyState
-          className="min-h-36"
-          icon={CircleAlert}
-          title="No AI analysis is available"
-          description="The ticket was submitted successfully. An AI recommendation may not be available for this request."
-        />
+        <div className="grid justify-items-center gap-2 px-5 pb-5">
+          <Button loading={isGenerating} onClick={generateAnalysis} type="button">
+            <Sparkles aria-hidden="true" className="size-4" />
+            Generate analysis
+          </Button>
+          {generationError && <p className="text-sm text-critical" role="alert">{generationError}</p>}
+        </div>
       </Card>
     );
   }
@@ -365,6 +408,15 @@ function AiAnalysisPanel({ ticketId }) {
           title="Analysis could not be completed"
           description={analysis.failureMessage
             || "Your ticket was created successfully. The AI provider was unavailable, but support can still review your request."}
+          action={(
+            <div className="grid justify-items-center gap-2">
+              <Button loading={isGenerating} onClick={generateAnalysis} type="button" variant="secondary">
+                <Sparkles aria-hidden="true" className="size-4" />
+                Try analysis again
+              </Button>
+              {generationError && <p className="text-sm text-critical" role="alert">{generationError}</p>}
+            </div>
+          )}
         />
       </Card>
     );

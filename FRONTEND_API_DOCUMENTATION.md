@@ -126,12 +126,12 @@ access.
 
 | Method and path | Parameters / body | Success response | Authentication / role | Errors |
 |---|---|---|---|---|
-| `POST /api/tickets` | Body: `CreateTicketRequest` | 201 `TicketResponse`; initial status is `OPEN`, default priority `MEDIUM`; automatic AI analysis is enabled by default | `EMPLOYEE` | 400 invalid input, 403 other role/inactive category, 404 category |
+| `POST /api/tickets` | Body: `CreateTicketRequest` | 201 `TicketResponse`; initial status is `OPEN`, default priority `MEDIUM`; AI analysis is not generated automatically | `EMPLOYEE` | 400 invalid input, 403 other role/inactive category, 404 category |
 | `GET /api/tickets/my` | Query: `page=0`, `size=20`, `sortBy=createdAt`, `direction=DESC` | 200 `PageResponse<TicketResponse>` | `EMPLOYEE` | 400 invalid paging/sort |
 | `GET /api/tickets/{ticketId}` | Path: UUID `ticketId` | 200 `TicketResponse` | Authenticated; service enforces ticket access | 403, 404 |
 | `POST /api/tickets/{ticketId}/comments` | Path `ticketId`; body `AddTicketCommentRequest` | 201 `TicketCommentResponse` | Ticket participant with access; employee may add `PUBLIC` only | 400, 403, 404, 409 closed ticket or internal employee comment |
 | `GET /api/tickets/{ticketId}/comments` | Path `ticketId`; query `page=0`, `size=20` | 200 `PageResponse<TicketCommentResponse>`; sorted `createdAt` ascending | Ticket participant with access | 400, 403, 404 |
-| `POST /api/tickets/{ticketId}/ai-analysis` | Path `ticketId`; no body | 201 `TicketAiAnalysisResponse` | Authenticated user with ticket access | 403, 404; provider failure is returned as analysis status `FAILED` |
+| `POST /api/tickets/{ticketId}/ai-analysis` | Path `ticketId`; no body | 201 `TicketAiAnalysisResponse` | `EMPLOYEE` with ticket access | 403 other roles/no access, 404; provider failure is returned as analysis status `FAILED` |
 | `GET /api/tickets/{ticketId}/ai-analysis` | Path `ticketId` | 200 latest `TicketAiAnalysisResponse` | Authenticated user with ticket access | 403, 404 if ticket or analysis is missing |
 
 Ticket list sort fields accepted by both ticket and admin ticket lists are `createdAt`, `updatedAt`,
@@ -155,6 +155,11 @@ team is supplied, team membership. Closed tickets cannot be assigned or changed.
 | `PUT /api/support/tickets/{ticketId}/ai-analysis` | Path `ticketId`; body `ReviewTicketAiAnalysisRequest` | 200 `TicketAiAnalysisResponse` | `SUPPORT_ENGINEER` with ticket access | 400, 403, 404, 409 analysis not completed/category unavailable |
 | `GET /api/support/assignment-options/engineers` | Optional query `teamId` | 200 array of `AssignableEngineerResponse` | `SUPPORT_ENGINEER` | 403 |
 | `GET /api/support/assignment-options/teams` | — | 200 array of `AssignableTeamResponse` | `SUPPORT_ENGINEER` | 403 |
+
+The support frontend does not expose AI generation. Support engineers can review an existing
+analysis through `PUT /api/support/tickets/{ticketId}/ai-analysis`. Employee generation continues
+to use `POST /api/tickets/{ticketId}/ai-analysis`. Automatic analysis after ticket creation runs
+after the ticket transaction commits.
 
 For the support queue, category, priority, and status filters use the corresponding query parameters
 on `GET /api/support/tickets/filter`; creation-date ordering uses `sortBy=createdAt` and
@@ -252,13 +257,13 @@ exposure, not controller methods.
 | Employee dashboard | `GET /api/tickets/my` (fetch paginated results to calculate complete ticket totals and status counts); `GET /api/tickets/{ticketId}/comments` for comments on the five most recently updated tickets |
 | Employee ticket list | `GET /api/tickets/my` |
 | Employee ticket submission | `POST /api/tickets`; category and priority are optional (default priority is `MEDIUM`); category selection is omitted because no non-admin category-list API exists |
-| Employee ticket detail / comments | `GET /api/tickets/{ticketId}`; `GET /api/tickets/{ticketId}/comments`; `POST /api/tickets/{ticketId}/comments`; the frontend retrieves `GET /api/tickets/{ticketId}/ai-analysis` to display analysis generated automatically on creation |
-| Employee AI analysis | `POST /api/tickets/{ticketId}/ai-analysis`; `GET /api/tickets/{ticketId}/ai-analysis` |
+| Employee ticket detail / comments | `GET /api/tickets/{ticketId}`; `GET /api/tickets/{ticketId}/comments`; `POST /api/tickets/{ticketId}/comments`; `GET /api/tickets/{ticketId}/ai-analysis` to display an existing analysis |
+| Employee AI analysis | The employee explicitly requests generation from the ticket detail UI with `POST /api/tickets/{ticketId}/ai-analysis`; `GET /api/tickets/{ticketId}/ai-analysis` returns the latest analysis or the backend 404 message when none exists |
 | Support dashboard | `GET /api/support/tickets` across pages; dashboard metrics, priority chart, and assigned-ticket summary are computed from the accessible results |
 | Support queue / filters | `GET /api/support/tickets`; `GET /api/support/tickets/filter`; the Assigned Tickets screen filters the accessible results by the signed-in engineer's `assignedToId` because no assigned-only endpoint exists |
 | Support ticket detail / conversation | `GET /api/support/tickets/{ticketId}`; shared ticket comment GET/POST endpoints |
 | Support ticket work | `GET /api/support/assignment-options/engineers`; `GET /api/support/assignment-options/teams`; `GET /api/support/tickets/{ticketId}/status-history`; `PUT /api/support/tickets/{ticketId}/assign`; `/status`; `/resolve` |
-| Support AI recommendation review | `GET /api/tickets/{ticketId}/ai-analysis`; `PUT /api/support/tickets/{ticketId}/ai-analysis` |
+| Support AI recommendation review | `GET /api/tickets/{ticketId}/ai-analysis` for the latest analysis; `PUT /api/support/tickets/{ticketId}/ai-analysis` to update/review it; no support generation action is exposed |
 | Admin dashboard | `GET /api/admin/dashboard/summary`; `/tickets-by-status`; `/tickets-by-priority`; `/tickets-by-category`; support-team counts are included in `summary.ticketsBySupportTeam` (the separate `/tickets-by-support-team` endpoint is available but not used by this screen) |
 | Admin ticket browsing / assignment | `GET /api/admin/tickets`; `GET /api/admin/tickets/{ticketId}`; `PUT /api/admin/tickets/{ticketId}/assign`; active engineer options from `GET /api/admin/users?role=SUPPORT_ENGINEER`; active team options from `GET /api/admin/teams` |
 | Admin user management | `/api/admin/users` GET/POST; `/api/admin/users/{id}` GET/PUT; `/api/admin/users/{id}/status` PATCH |

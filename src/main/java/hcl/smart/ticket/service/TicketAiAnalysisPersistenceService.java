@@ -39,6 +39,7 @@ public class TicketAiAnalysisPersistenceService {
 
 	@Transactional
 	public AnalysisContext beginAnalysis(UserPrincipal actor, UUID ticketId) {
+		requireEmployee(actor);
 		Ticket ticket = accessibleTicket(actor, ticketId);
 		List<String> categories = categoryRepository.findByActiveTrueOrderByNameAsc()
 				.stream().map(TicketCategory::getName).toList();
@@ -55,7 +56,7 @@ public class TicketAiAnalysisPersistenceService {
 				categories);
 	}
 
-	@Transactional
+	@Transactional(Transactional.TxType.REQUIRES_NEW)
 	public TicketAiAnalysisResponse completeAnalysis(AnalysisContext context, AiAnalysisResult result) {
 		TicketAiAnalysis analysis = findAnalysis(context.analysisId(), context.ticketId());
 		TicketCategory category = categoryRepository.findByNameIgnoreCase(result.suggestedCategory().trim())
@@ -71,7 +72,7 @@ public class TicketAiAnalysisPersistenceService {
 		return toResponse(analysisRepository.save(analysis));
 	}
 
-	@Transactional
+	@Transactional(Transactional.TxType.REQUIRES_NEW)
 	public TicketAiAnalysisResponse failAnalysis(AnalysisContext context, String failureMessage) {
 		TicketAiAnalysis analysis = findAnalysis(context.analysisId(), context.ticketId());
 		analysis.setStatus(AiAnalysisStatus.FAILED);
@@ -116,19 +117,6 @@ public class TicketAiAnalysisPersistenceService {
 		return toResponse(analysisRepository.save(analysis));
 	}
 
-	@Transactional
-	public AnalysisContext beginSystemAnalysis(UUID ticketId) {
-		Ticket ticket = ticketRepository.findById(ticketId).orElseThrow(TicketNotFoundException::new);
-		List<String> categories = categoryRepository.findByActiveTrueOrderByNameAsc()
-				.stream().map(TicketCategory::getName).toList();
-		TicketAiAnalysis analysis = analysisRepository.save(TicketAiAnalysis.builder()
-				.ticket(ticket)
-				.status(AiAnalysisStatus.PENDING)
-				.createdAt(Instant.now())
-				.build());
-		return new AnalysisContext(analysis.getId(), ticketId, ticket.getTitle(), ticket.getDescription(), categories);
-	}
-
 	private Ticket accessibleTicket(UserPrincipal actor, UUID ticketId) {
 		Ticket ticket = ticketRepository.findById(ticketId).orElseThrow(TicketNotFoundException::new);
 		ticketAccessService.requireCanAccess(actor, ticket);
@@ -143,6 +131,12 @@ public class TicketAiAnalysisPersistenceService {
 	private void requireSupportEngineer(UserPrincipal actor) {
 		if (actor == null || !UserRole.SUPPORT_ENGINEER.name().equals(actor.role())) {
 			throw new AccessDeniedException("Support engineer access is required");
+		}
+	}
+
+	private void requireEmployee(UserPrincipal actor) {
+		if (actor == null || !UserRole.EMPLOYEE.name().equals(actor.role())) {
+			throw new AccessDeniedException("Employee access is required to generate AI analysis");
 		}
 	}
 

@@ -1,12 +1,10 @@
 import { useEffect, useState } from "react";
 import {
   AlertCircle,
-  Bot,
   Check,
   Circle,
   ListChecks,
   PencilLine,
-  RefreshCw,
   Sparkles,
 } from "lucide-react";
 import toast from "react-hot-toast";
@@ -18,7 +16,6 @@ import ErrorState from "../ui/ErrorState.jsx";
 import { SelectInput, TextArea } from "../ui/FormField.jsx";
 import Skeleton from "../ui/Skeleton.jsx";
 import {
-  generateTicketAiAnalysis,
   getTicketAiAnalysis,
   reviewSupportTicketAiAnalysis,
 } from "../../services/ticketService.js";
@@ -85,7 +82,6 @@ export default function SupportAiAnalysisPanel({ ticketId }) {
   const analysis = isLoading ? null : analysisResult.analysis;
   const loadError = loadStatus === "error" ? analysisResult.error : "";
   const [actionError, setActionError] = useState("");
-  const [isGenerating, setIsGenerating] = useState(false);
   const [isReviewing, setIsReviewing] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [draft, setDraft] = useState(null);
@@ -112,26 +108,6 @@ export default function SupportAiAnalysisPanel({ ticketId }) {
 
     return () => controller.abort();
   }, [requestKey, ticketId]);
-
-  async function generateAnalysis() {
-    setIsGenerating(true);
-    setActionError("");
-    try {
-      const result = await generateTicketAiAnalysis(ticketId);
-      setAnalysisResult({ requestKey, status: "success", analysis: result, error: "" });
-      if (result.status === "FAILED") {
-        toast.error("AI analysis failed. See the provider message below.");
-      } else {
-        toast.success("AI analysis is ready.");
-      }
-    } catch (error) {
-      const message = getErrorMessage(error);
-      setActionError(message);
-      toast.error(message);
-    } finally {
-      setIsGenerating(false);
-    }
-  }
 
   async function submitReview(values) {
     setActionError("");
@@ -217,7 +193,7 @@ export default function SupportAiAnalysisPanel({ ticketId }) {
     return (
       <Card className="overflow-hidden border-purple-200">
         <CardHeader
-          description="Generate advisory AI analysis for this ticket. It will not change ticket status or assignment."
+          description="AI recommendations are advisory. Support engineers can update them after they are generated."
           title={(
             <span className="inline-flex items-center gap-2">
               <Sparkles aria-hidden="true" className="size-4 text-ai" />
@@ -228,17 +204,10 @@ export default function SupportAiAnalysisPanel({ ticketId }) {
         />
         <EmptyState
           className="min-h-36"
-          icon={Bot}
-          title="No AI analysis yet"
-          description="Generate a summary, category and priority suggestions, troubleshooting steps, and a suggested response."
-          action={(
-            <Button loading={isGenerating} onClick={generateAnalysis} type="button">
-              <Sparkles aria-hidden="true" className="size-4" />
-              Generate analysis
-            </Button>
-          )}
+          icon={AlertCircle}
+          title="No AI analysis available"
+          description="There are no recommendations to update yet. The employee or automatic ticket workflow must generate an analysis first."
         />
-        {actionError && <p className="px-5 pb-5 text-sm text-critical" role="alert">{actionError}</p>}
       </Card>
     );
   }
@@ -289,13 +258,6 @@ export default function SupportAiAnalysisPanel({ ticketId }) {
                 {analysis.failureMessage || "The provider did not return a specific failure message for this analysis."}
               </p>
             </div>
-          </div>
-          {actionError && <p className="text-sm text-critical" role="alert">{actionError}</p>}
-          <div>
-            <Button loading={isGenerating} onClick={generateAnalysis} type="button" variant="secondary">
-              <RefreshCw aria-hidden="true" className="size-4" />
-              Try analysis again
-            </Button>
           </div>
         </div>
       </Card>

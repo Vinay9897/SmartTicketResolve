@@ -85,8 +85,8 @@ The default endpoint is the `gpt-4.1` deployment with API version `2024-12-01-pr
 with `SMARTRESOLVE_AI_ENDPOINT` if needed. `SMARTRESOLVE_AI_MODEL` defaults to `gpt-4.1`,
 `SMARTRESOLVE_AI_TEMPERATURE` defaults to `0.2`, and `SMARTRESOLVE_AI_REQUEST_TIMEOUT` defaults
 to `PT20S`. Each AI response is capped at 100 tokens. Without a configured API key, analyses are
-recorded as `FAILED`; ticket creation still succeeds. Set
-`SMARTRESOLVE_AI_AUTO_ANALYZE_ON_CREATE=false` to disable automatic after-creation analysis.
+recorded as `FAILED`; ticket creation still succeeds. Analysis is generated only when an employee
+requests it from the ticket details page; ticket creation does not trigger an AI call.
 
 - `POST /api/tickets/{ticketId}/ai-analysis` requests a new analysis.
 - `GET /api/tickets/{ticketId}/ai-analysis` returns the latest analysis.

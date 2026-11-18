@@ -188,6 +188,10 @@ should be visually secondary to the ticket and its conversation.
 - Employee: Dashboard, My Tickets, Create Ticket.
 - Support Engineer: Dashboard, Ticket Queue, Assigned Tickets.
 - Administrator: Dashboard, Tickets, Users, Categories, Support Teams.
+- AI generation follows the active role's API boundary: employees may generate through
+  `/tickets/{ticketId}/ai-analysis`; support engineers can view and update existing
+  recommendations but do not get a generation action. Never expose the employee generation
+  endpoint from support UI.
 - All roles: profile menu and logout. On mobile, role-specific navigation becomes a dismissible
   drawer with Escape and focus handling.
 - Each data-backed screen has loading, empty, error, and success feedback states. Forms show

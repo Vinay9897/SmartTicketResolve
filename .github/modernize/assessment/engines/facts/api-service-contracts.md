@@ -78,9 +78,8 @@ schema was found.
 
 - Browser/client-to-backend communication is synchronous REST over HTTP.
 - Controllers call application services directly. Services use Spring Data JPA repositories.
-- After successful ticket creation, `TicketCreatedEvent` is published. A transactional listener
-  invokes AI analysis after commit when enabled. The listener is not marked asynchronous; it is an
-  in-process event, not a message-broker workflow.
+- AI analysis is generated only after an employee explicitly requests it from ticket details.
+  Ticket creation does not trigger an automatic AI call.
 - AI calls use the configured Spring AI client. The analysis layer applies a configured timeout
   (default 20 seconds) and stores failed analysis status instead of undoing ticket creation.
 - No retry or circuit-breaker configuration was found.
@@ -104,7 +103,6 @@ sequenceDiagram
     participant Controller as "REST Controller"
     participant Service as "Application Service"
     participant Database as "PostgreSQL"
-    participant Listener as "Post Commit Listener"
     participant AI as "Spring AI Provider"
 
     Client->>Security: POST /api/auth/login
@@ -118,18 +116,21 @@ sequenceDiagram
     Controller->>Service: CreateTicketRequest
     Service->>Database: Save ticket and status history
     Database-->>Service: Persisted ticket
-    Service-)Listener: TicketCreatedEvent after commit
-    Listener->>Database: Save PENDING analysis
-    Database-->>Listener: Analysis context
-    Listener->>AI: Analyze title and description
-    alt Provider responds
-        AI-->>Listener: Structured advisory analysis
-        Listener->>Database: Save COMPLETED analysis
-        Database-->>Listener: Saved analysis
-    else Provider unavailable or timeout
-        AI-->>Listener: Provider failure
-        Listener->>Database: Save FAILED analysis
-        Database-->>Listener: Saved failed status
-    end
     Service-->>Client: TicketResponse
+    Client->>Security: POST /api/tickets/{ticketId}/ai-analysis
+    Security->>Controller: Authorized EMPLOYEE principal
+    Controller->>Service: Generate analysis request
+    Service->>Database: Save PENDING analysis
+    Database-->>Service: Analysis context
+    Service->>AI: Analyze title and description
+    alt Provider responds
+        AI-->>Service: Structured advisory analysis
+        Service->>Database: Save COMPLETED analysis
+        Database-->>Service: Saved analysis
+    else Provider unavailable or timeout
+        AI-->>Service: Provider failure
+        Service->>Database: Save FAILED analysis
+        Database-->>Service: Saved failed status
+    end
+    Service-->>Client: TicketAiAnalysisResponse
 ~~~

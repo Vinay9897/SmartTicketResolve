@@ -58,16 +58,18 @@ class TicketAiAnalysisWorkflowServiceTest {
 	}
 
 	@Test
-	void recordsFailedAnalysisWhenProviderIsUnavailable() {
+	void recordsFailedAnalysisForEmployeeRequestWhenProviderIsUnavailable() {
+		UserPrincipal actor = new UserPrincipal(
+				UUID.randomUUID(), "Employee", "employee@example.test", "hash", "EMPLOYEE", true, Instant.now());
 		UUID ticketId = UUID.randomUUID();
 		TicketAiAnalysisPersistenceService.AnalysisContext context = context(ticketId);
 		TicketAiAnalysisResponse failed = response(ticketId, AiAnalysisStatus.FAILED);
-		when(persistenceService.beginSystemAnalysis(ticketId)).thenReturn(context);
+		when(persistenceService.beginAnalysis(actor, ticketId)).thenReturn(context);
 		when(aiAnalysisService.analyze(context.toRequest()))
 				.thenThrow(new AiAnalysisException("AI API key is not configured"));
 		when(persistenceService.failAnalysis(context, "AI API key is not configured")).thenReturn(failed);
 
-		assertThat(workflowService.analyzeCreatedTicket(ticketId)).isSameAs(failed);
+		assertThat(workflowService.analyze(actor, ticketId)).isSameAs(failed);
 		verify(persistenceService).failAnalysis(context, "AI API key is not configured");
 		verify(persistenceService, never()).completeAnalysis(eq(context), any(AiAnalysisResult.class));
 	}

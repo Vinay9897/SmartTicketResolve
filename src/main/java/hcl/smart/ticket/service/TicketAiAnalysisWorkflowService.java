@@ -26,10 +26,6 @@ public class TicketAiAnalysisWorkflowService {
 		return analyze(persistenceService.beginAnalysis(actor, ticketId));
 	}
 
-	public TicketAiAnalysisResponse analyzeCreatedTicket(UUID ticketId) {
-		return analyze(persistenceService.beginSystemAnalysis(ticketId));
-	}
-
 	public TicketAiAnalysisResponse getLatest(UserPrincipal actor, UUID ticketId) {
 		return persistenceService.getLatest(actor, ticketId);
 	}
